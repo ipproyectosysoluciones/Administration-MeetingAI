@@ -18,11 +18,11 @@ Sources: `proposal.md`, `specs/**/spec.md`, `architecture.md`, `data-model.md`, 
 
 ## Phase 1 — Database & Migrations
 
-- [ ] **TASK-010** `chore: set up Alembic with async engine` — non-destructive rules, rollback tested. Tests: migration upgrade/downgrade smoke test.
-- [ ] **TASK-011** `feat: migration 001 init_core (tenants/organizations/properties/users/memberships)` — UUID PKs, `tenant_id`, indexes, FKs per data-model.md §2.1. Tests: schema introspection asserts tenant_id + indexes exist.
-- [ ] **TASK-012** `feat: migration 002 auth (sessions/refresh_tokens/mfa)` — rotation chain fields (`replaced_by_token_id`), per data-model §2.2. Tests: FK + constraint checks.
-- [ ] **TASK-013** `feat: migration 003 rbac (roles/permissions/role_permissions/user_roles)` — unique `resource.action`, cascade rules, seeding hooks. Tests: constraint tests.
-- [ ] **TASK-014** `feat: migration 004 audit (audit_events append-only)` — no UPDATE/DELETE paths; actor, tenant, action, resource, resource_id, timestamp, ip, user_agent, metadata. Tests: append-only enforcement test.
+- [x] **TASK-010** `chore: set up Alembic with async engine` — non-destructive rules, rollback tested. Tests: migration upgrade/downgrade smoke test.
+- [x] **TASK-011** `feat: migration 001 init_core (tenants/organizations/properties/users/memberships)` — UUID PKs, `tenant_id`, indexes, FKs per data-model.md §2.1. Tests: schema introspection asserts tenant_id + indexes exist.
+- [x] **TASK-012** `feat: migration 002 auth (sessions/refresh_tokens/mfa)` — rotation chain fields (`replaced_by_token_id`), per data-model §2.2. Tests: FK + constraint checks.
+- [x] **TASK-013** `feat: migration 003 rbac (roles/permissions/role_permissions/user_roles)` — unique `resource.action`, cascade rules, seeding hooks. Tests: constraint tests.
+- [x] **TASK-014** `feat: migration 004 audit (audit_events append-only)` — no UPDATE/DELETE paths; actor, tenant, action, resource, resource_id, timestamp, ip, user_agent, metadata. Tests: append-only enforcement test.
 
 ## Phase 2 — Core Security Primitives
 

@@ -104,3 +104,114 @@ Commands:
 - Chained PR strategy: `feature-branch-chain`. Tracker `feature/auth-multitenant-foundation`,
   child `feature/auth-multitenant-foundation-pr1`.
 - No `size:exception` claimed; the boundary is an honest cohesive split (Phase 0 is self-contained).
+
+---
+
+## PR-1, work-unit slice B — Phase 1 (database & migrations): TASK-010..014
+
+**Branch:** `feature/auth-multitenant-foundation-pr1` (continued from slice A).
+
+### Status guard
+
+Same resolved guard as slice A: the design content lives in `architecture.md` + `data-model.md`
+(+ `api-contract.md`/`test-plan.md`) rather than a single `design.md`, so the "design.md missing"
+blocker is a filename mismatch, not a gap. `actionContext` is `repo-local` with the single
+workspace root as the sole edit root and no warnings. Proceeding under orchestrator direction.
+
+### Completed tasks (this slice)
+
+- [x] **TASK-010** — Alembic async setup: `alembic.ini`, `alembic/env.py` (async engine via
+  `run_sync`), `alembic/script.py.mako`, and `app/core/database.py` (async engine + session +
+  `DeclarativeBase` with a naming convention). Non-destructive; upgrade/downgrade smoke-tested.
+- [x] **TASK-011** — migration `0001_init_core`: users/organizations/properties/memberships.
+- [x] **TASK-012** — migration `0002_auth`: refresh_tokens/mfa_devices/sessions (rotation chain FK).
+- [x] **TASK-013** — migration `0003_rbac`: permissions/roles/role_permissions/user_roles + seed.
+- [x] **TASK-014** — migration `0004_audit`: audit_events + append-only trigger.
+
+`tasks.md` checkboxes updated to `- [x]` for TASK-010..014.
+
+### Files changed (this slice)
+
+Backend (`apps/backend/`):
+
+- `pyproject.toml` — added `sqlalchemy[asyncio]`, `asyncpg`, `greenlet` (runtime), `alembic` (dev),
+  and `[tool.ruff.lint.isort] known-first-party = ["app"]` (the `alembic/` dir name would otherwise
+  be misclassified by isort).
+- `alembic.ini`, `alembic/env.py`, `alembic/script.py.mako` — Alembic async scaffolding.
+- `alembic/versions/0001_init_core.py` .. `0004_audit.py` — the four migrations.
+- `app/core/database.py` — async engine/session/Base + naming convention.
+- `tests/conftest.py` — `alembic_cfg` + `migrated_engine` fixtures (targets a Docker PostgreSQL).
+- `tests/test_migrations.py` — smoke + introspection + append-only tests.
+
+Docs (apply artifacts):
+
+- `openspec/changes/auth-multitenant-foundation/tasks.md` (checkbox updates)
+- `openspec/changes/auth-multitenant-foundation/apply-progress.md` (this file)
+
+### TDD cycle evidence (strict)
+
+Runner: `cd apps/backend && .venv/bin/python -m pytest` against a Docker PostgreSQL
+(`postgres:16-alpine`, `postgresql+asyncpg://reunionai:reunionai@localhost:5433/reunionai`).
+
+| Task | RED | GREEN | Runner |
+| --- | --- | --- | --- |
+| 010 smoke | `AssertionError: {'alembic_version'} == set()` | `test_migrations_upgrade_downgrade_smoke PASSED` | pytest |
+| 011 schema absent | `sqlalchemy.exc.NoSuchTableError` (tables not yet created) | `test_core_tenant_columns_and_fks PASSED` | pytest |
+| 012 chain FK | `NoSuchTableError: refresh_tokens` | `test_refresh_token_chain_self_fk PASSED` | pytest |
+| 013 seed broken | `INSERT has more target columns than expressions` (missing `is_system`) | `test_rbac_constraints_and_seed PASSED` | `alembic upgrade` + pytest |
+| 014 append-only | (empty schema, no trigger) | `test_audit_schema_and_append_only PASSED` | pytest |
+
+Commands (final green):
+
+- `alembic -x db_url=... upgrade head` → `Running upgrade 0001→0002→0003→0004` (clean)
+- `.venv/bin/python -m pytest -q` → `9 passed` (2 Phase-0 + 5 migration + 2 config)
+- `.venv/bin/ruff check app/ alembic/ tests/` → `All checks passed!`
+- `.venv/bin/mypy app alembic tests` → `Success: no issues found in 20 source files`
+
+### Deviations from design
+
+1. **"tenants" in TASK-011 title**: there is **no** separate `tenants` table. `data-model.md` §2.1
+   defines migration 001 as `users/organizations/properties/memberships`, and `organizations.id`
+   **is** the tenant root (`tenant_id`/`organization_id` FKs reference `organizations.id`).
+2. **Append-only via DB trigger** (`trg_audit_events_append_only`, BEFORE UPDATE OR DELETE),
+   instead of `data-model.md` §2.4's `REVOKE UPDATE, DELETE` (which needs an app role that does not
+   exist until the infra slice). The trigger is role-independent and testable; a future `REVOKE`
+   can coexist with it.
+3. **Test backend = PostgreSQL** (not SQLite): the schema uses `INET`, `JSONB`, `TIMESTAMPTZ`,
+   `gen_random_uuid()`, and partial indexes, which SQLite does not support. Documented choice per
+   the task instruction.
+4. **Extensions** (`pgcrypto`, `uuid-ossp`) are created `IF NOT EXISTS` but **not** dropped on
+   downgrade (cluster-level shared objects; dropping could affect unrelated databases).
+5. **`alembic/` directory naming** collides with the installed `alembic` package for ruff's isort;
+   resolved via `known-first-party = ["app"]` (no real import shadowing — verified `alembic.__file__`
+   resolves to site-packages).
+
+### Remaining tasks (next slices — NOT this attempt)
+
+- [ ] TASK-020 password hashing service (Argon2id)
+- [ ] TASK-021 JWT service RS256
+- [ ] TASK-022 in-memory rate limiter
+- [ ] TASK-030 tenant-context dependency
+- [ ] TASK-031 require_permission dependency
+- [ ] TASK-040..046 auth module (register/login/refresh/revoke/MFA/sessions/mandatory-MFA)
+- [ ] TASK-050 users CRUD + profile + password change
+- [ ] TASK-060 organizations + properties CRUD
+- [ ] TASK-070 permission registry + base role seeding
+- [ ] TASK-080 audit service + admin query endpoint
+- [ ] TASK-090 cross-tenant isolation suite
+- [ ] TASK-100 frontend auth screens
+- [ ] TASK-110..113 docker, CI, bootstrap CLI, docs
+
+### Workload / PR boundary
+
+- **Actual changed lines (slice B): ~1,045** across migrations/infra/tests (plus `pyproject.toml`
+  +7 and `tests/conftest.py` +35). This **exceeds the 400-line budget ~2.5×**.
+- **Why it cannot split cleanly:** migrations 001→004 form a hard dependency chain (004's audit FKs
+  reference 001's tables; 003's seed needs 001+002), and 003's seed is atomic data
+  (34 permissions + 10 roles + their role→permission mappings).
+- **Recommendation:** `size:exception` for the migration slice — per the chained-PR guidance,
+  "migration diff cannot split cleanly → ask maintainer for `size:exception`". ~450 of those lines
+  are declarative DDL + seed data (low cognitive load), not logic. If an exception is unacceptable,
+  the next-best split is `001+002` (~408 lines) vs `003+004` (~368 lines) at the 002/003 boundary.
+- **No `size:exception` is inferred** (it requires explicit maintainer acceptance); this is reported,
+  not claimed.
