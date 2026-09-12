@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Local Pi runtime state
+.atl/
+
+# Lockfiles are local-only: regenerated per environment via `pnpm install` / `pip`.
+# Not committed per maintainer decision (regeneration on clone is intentional).
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
