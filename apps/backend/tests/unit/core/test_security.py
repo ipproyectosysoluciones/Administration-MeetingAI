@@ -9,11 +9,15 @@ Test priority (reunionai-tdd-standards): these are domain/security primitives.
 from __future__ import annotations
 
 import time
+import uuid
+from datetime import UTC, datetime, timedelta
 
+import jwt
 import pytest
 
 from app.core.config import Settings
-from app.core.security import PasswordHasher
+from app.core.exceptions import ExpiredTokenError, InvalidTokenError
+from app.core.security import JWTService, PasswordHasher
 
 
 @pytest.fixture
@@ -75,3 +79,77 @@ class TestPasswordHasher:
         hasher.verify("wrong", digest)
         elapsed_s = time.perf_counter() - start
         assert elapsed_s >= 0.005, f"verification completed too fast ({elapsed_s:.6f}s)"
+
+    # ---------------------------------------------------------------------------
+    # TASK-021 — JWT service (RS256, 15-minute access tokens)
+    # ---------------------------------------------------------------------------
+    class TestJWTService:
+        @pytest.fixture
+        def svc(self, rsa_keys: tuple[str, str]) -> JWTService:
+            private_pem, public_pem = rsa_keys
+            return JWTService(Settings(jwt_private_key=private_pem, jwt_public_key=public_pem))
+
+        def test_sign_and_verify_roundtrip(self, svc: JWTService) -> None:
+            user_id = uuid.uuid4()
+            tenant_id = uuid.uuid4()
+            permissions = ["user.read", "meeting.read"]
+            token = svc.create_access_token(user_id, tenant_id, permissions)
+            payload = svc.decode_access_token(token)
+            assert payload["sub"] == str(user_id)
+            assert payload["tid"] == str(tenant_id)
+            assert set(payload["perm"]) == set(permissions)
+
+        def test_claims_present(self, svc: JWTService) -> None:
+            token = svc.create_access_token(uuid.uuid4(), uuid.uuid4(), ["organization.read"])
+            payload = svc.decode_access_token(token)
+            for claim in ("sub", "tid", "perm", "iat", "exp", "jti"):
+                assert claim in payload, f"missing claim {claim}"
+
+        def test_expiry_is_15_minutes(self, svc: JWTService) -> None:
+            token = svc.create_access_token(uuid.uuid4(), uuid.uuid4(), [])
+            payload = svc.decode_access_token(token)
+            assert payload["exp"] - payload["iat"] == 15 * 60
+
+        def test_expired_token_rejected(self, svc: JWTService, rsa_keys: tuple[str, str]) -> None:
+            private_pem, _ = rsa_keys
+            now = datetime.now(UTC)
+            expired = jwt.encode(
+                {
+                    "sub": str(uuid.uuid4()),
+                    "tid": None,
+                    "perm": [],
+                    "iat": now - timedelta(minutes=30),
+                    "exp": now - timedelta(minutes=15),
+                    "jti": str(uuid.uuid4()),
+                },
+                private_pem,
+                algorithm="RS256",
+            )
+            with pytest.raises(ExpiredTokenError):
+                svc.decode_access_token(expired)
+
+        def test_wrong_key_rejected(
+            self, rsa_keys: tuple[str, str], rsa_keys_other: tuple[str, str]
+        ) -> None:
+            private_pem, public_pem = rsa_keys
+            other_private, _other_public = rsa_keys_other
+            token = jwt.encode(
+                {"sub": str(uuid.uuid4()), "iat": 0, "exp": 2**31},
+                other_private,
+                algorithm="RS256",
+            )
+            svc = JWTService(Settings(jwt_private_key=private_pem, jwt_public_key=public_pem))
+            with pytest.raises(InvalidTokenError):
+                svc.decode_access_token(token)
+
+        def test_tampered_token_rejected(self, svc: JWTService) -> None:
+            token = svc.create_access_token(uuid.uuid4(), uuid.uuid4(), ["user.read"])
+            header, payload, signature = token.split(".")
+            tampered_payload = jwt.utils.base64url_encode(b'{"sub": "attacker"}').decode()
+            tampered = f"{header}.{tampered_payload}.{signature}"
+            with pytest.raises(InvalidTokenError):
+                svc.decode_access_token(tampered)
+
+        def test_missing_key_raises_configuration_error(self) -> None:
+            with pytest.raises(ValueError):
+                JWTService(Settings())

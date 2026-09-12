@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pytest
 from alembic.config import Config
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -46,3 +48,34 @@ def migrated_engine(alembic_cfg: Config) -> Iterator[AsyncEngine]:
     engine = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool)
     yield engine
     command.downgrade(alembic_cfg, "base")
+
+
+def generate_rsa_keypair() -> tuple[str, str]:
+    """Return ``(private_pem, public_pem)`` for an ephemeral 2048-bit RSA key."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    private_pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+    public_pem = (
+        key.public_key()
+        .public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode()
+    )
+    return private_pem, public_pem
+
+
+@pytest.fixture(scope="session")
+def rsa_keys() -> tuple[str, str]:
+    """Primary RS256 keypair shared across security/dependency tests."""
+    return generate_rsa_keypair()
+
+
+@pytest.fixture(scope="session")
+def rsa_keys_other() -> tuple[str, str]:
+    """A distinct RS256 keypair used to prove wrong-key rejection."""
+    return generate_rsa_keypair()
