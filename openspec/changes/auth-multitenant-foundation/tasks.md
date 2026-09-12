@@ -26,14 +26,14 @@ Sources: `proposal.md`, `specs/**/spec.md`, `architecture.md`, `data-model.md`, 
 
 ## Phase 2 — Core Security Primitives
 
-- [ ] **TASK-020** `feat: password hashing service (Argon2id)` — passlib wrapper in `core/security.py`. Tests: hash/verify, wrong-password rejection, timing sanity.
-- [ ] **TASK-021** `feat: JWT service RS256 (15-min access tokens)` — key loading from env, claims, expiry. Tests: sign/verify, expired token rejection, wrong-key rejection.
-- [ ] **TASK-022** `feat: in-memory rate limiter` — per architecture §7, on auth endpoints. Tests: limit hit → 429; window reset.
+- [x] **TASK-020** `feat: password hashing service (Argon2id)` — passlib wrapper in `core/security.py`. Tests: hash/verify, wrong-password rejection, timing sanity.
+- [x] **TASK-021** `feat: JWT service RS256 (15-min access tokens)` — key loading from env, claims, expiry. Tests: sign/verify, expired token rejection, wrong-key rejection.
+- [x] **TASK-022** `feat: in-memory rate limiter` — per architecture §7, on auth endpoints. Tests: limit hit → 429; window reset.
 
 ## Phase 3 — Tenant Context & Authorization Primitives
 
-- [ ] **TASK-030** `feat: tenant-context dependency (resolution chain)` — user → membership → tenant → role → permission per architecture §3; never trust request-supplied `tenant_id`. Tests: unit tests of chain with fixture memberships.
-- [ ] **TASK-031** `feat: require_permission dependency (resource.action)` — union resolution per architecture §5.3. Tests: allowed/denied matrix incl. 401 vs 403.
+- [x] **TASK-030** `feat: tenant-context dependency (resolution chain)` — user → membership → tenant → role → permission per architecture §3; never trust request-supplied `tenant_id`. Tests: unit tests of chain with fixture memberships.
+- [x] **TASK-031** `feat: require_permission dependency (resource.action)` — union resolution per architecture §5.3. Tests: allowed/denied matrix incl. 401 vs 403.
 
 ## Phase 4 — Auth Module
 

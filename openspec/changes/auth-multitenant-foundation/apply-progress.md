@@ -215,3 +215,106 @@ Commands (final green):
   the next-best split is `001+002` (~408 lines) vs `003+004` (~368 lines) at the 002/003 boundary.
 - **No `size:exception` is inferred** (it requires explicit maintainer acceptance); this is reported,
   not claimed.
+
+---
+
+## PR-2, work-unit slice — Phases 2–3 (security primitives + tenant context): TASK-020..031
+
+**Branch:** `feature/auth-multitenant-foundation-pr2` (created from pr1 per feature-branch-chain).
+
+### Status guard
+
+Same resolved guard as prior slices: the "design.md missing" blocker is a filename mismatch —
+design content lives in `architecture.md`/`data-model.md`/`api-contract.md`/`test-plan.md`,
+referenced explicitly by the orchestrator (§3/§4/§5/§7, api-contract §1, test-plan). No
+substantive design gap. `actionContext` is `repo-local`, single workspace root, no warnings.
+
+### Completed tasks (this slice)
+
+- [x] **TASK-020** — `PasswordHasher` (Argon2id) in `core/security.py`.
+- [x] **TASK-021** — `JWTService` (RS256, 15-min) in `core/security.py` + `core/exceptions.py`.
+- [x] **TASK-022** — `InMemoryRateLimiter` (sliding window) in `core/middleware/rate_limit.py`.
+- [x] **TASK-030** — `Membership` + `resolve_active_membership` (resolution chain) in `core/dependencies.py`.
+- [x] **TASK-031** — `Role`/`resolve_permissions`/`AuthContext`/`require_permission` (401 vs 403) in `core/dependencies.py`.
+
+`tasks.md` checkboxes updated to `- [x]` for TASK-020..031.
+
+### Files changed (this slice)
+
+Backend (`apps/backend/`):
+
+- `app/core/security.py` — `PasswordHasher` (Argon2id) + `JWTService` (RS256).
+- `app/core/exceptions.py` — token/auth domain errors (`InvalidTokenError`, `ExpiredTokenError`,
+  `AuthenticationError`, `AuthorizationError`, `TenantResolutionError`, `TokenError`, `SecurityError`).
+- `app/core/dependencies.py` — `Membership`, `resolve_active_membership`, `Role`,
+  `resolve_permissions`, `AuthContext`, `AuthorizationResolver` protocol, `require_permission`.
+- `app/core/middleware/__init__.py`, `app/core/middleware/rate_limit.py` — in-memory limiter.
+- `pyproject.toml` — deps `argon2-cffi`, `PyJWT`, `cryptography`.
+- `tests/conftest.py` — `generate_rsa_keypair` + `rsa_keys`/`rsa_keys_other` session fixtures.
+- `tests/unit/core/test_security.py` (TASK-020/021), `test_rate_limit.py` (022),
+  `test_tenant_context.py` (030), `test_require_permission.py` (031).
+
+### TDD cycle evidence (strict)
+
+Runner: `cd apps/backend && .venv/bin/python -m pytest`.
+
+| Task | RED | GREEN | Runner |
+| --- | --- | --- | --- |
+| 020 | `ModuleNotFoundError: No module named 'app.core.security'` | `8 passed` | pytest |
+| 021 | `ModuleNotFoundError: app.core.exceptions` / `no attribute JWTService` | `15 passed` | pytest |
+| 022 | `import-not-found: app.core.middleware.rate_limit` | `5 passed` | pytest |
+| 030 | `import-not-found: app.core.dependencies` | `6 passed` | pytest |
+| 031 | `attr-defined: no AuthContext` | `8 passed` (43 total full suite) | pytest |
+
+Commands (final green):
+
+- `.venv/bin/python -m pytest -q` → `43 passed` (incl. Phase 0/1 migration tests against Docker postgres).
+- `.venv/bin/ruff check app/ tests/` → `All checks passed!`
+- `.venv/bin/ruff format --check app/ tests/` → `24 files already formatted`
+- `.venv/bin/mypy app tests` → `Success: no issues found in 24 source files`
+
+### Deviations from design
+
+1. **`argon2-cffi` instead of `passlib[argon2]`**: `architecture.md` §4.3 says "passlib[argon2]", but
+   passlib 1.7.4 is unmaintained since 2020 and its `argon2` handler is broken with modern
+   `argon2-cffi` (>=21.3). `argon2-cffi`'s `PasswordHasher` is Argon2id by default with params
+   matching §4.3 exactly (memory=65536, time=3, parallelism=4, hash_len=32, salt_len=16). Chosen per
+   Correctness > Security priority (AGENTS.md §13); documented in the `PasswordHasher` docstring.
+2. **`get_tenant_id` home**: §2.1 lists `get_tenant_id()` under `core/middleware/tenant_context.py`
+   but §3.2 places it in `core/dependencies.py`. Resolution primitives live in `core/dependencies.py`
+   (matching §3.2 + §2.2 "cross-module calls go through core.dependencies"). The middleware that
+   populates `request.state.tenant_id` (§3.1) is a route-layer concern deferred to PR-3+.
+3. **Model boundary documented, not implemented**: the DB-backed `AuthorizationResolver` (real
+   `memberships`/`user_roles`/`role_permissions` queries) is deferred to the users/rbac repositories
+   (PR-4/5); this slice ships the pure resolution functions + a `Protocol` seam, tested with
+   in-memory fakes (`FakeResolver`/`NoMembershipResolver`) — a "lightweight fake where the contract
+   allows" per the slice instruction. The ORM models are intentionally not created here to keep the
+   PR boundary clean.
+4. **`require_permission` re-resolves, never trusts `perm` claim** (§4.1): the JWT `perm` is a hint;
+   authorization always comes from the resolver's union.
+
+### Workload / PR boundary
+
+- **Actual changed lines: 902 insertions, 0 deletions** (11 files). **~2.25× the 400-line budget.**
+- **Honesty check:** no padding, no skipped tests — each task is a cohesive unit with real tests.
+- **Natural split (already committed discretely):**
+  - **TASK-020..022** = security primitives + rate limiter (`security.py` + `exceptions.py` +
+    `middleware/rate_limit.py` + `security`/`rate_limit` tests + `pyproject` + `conftest`) ≈ 496 lines.
+  - **TASK-030..031** = tenant context + require_permission (`dependencies.py` +
+    `tenant_context`/`require_permission` tests) ≈ 406 lines.
+  - Each per-task commit is individually ≤ ~283 lines; the parent's "TASK-020..022 vs TASK-030..031"
+    split maps cleanly to two reviewable PRs if the 400-line budget is enforced strictly.
+- **No `size:exception` claimed** (requires explicit maintainer acceptance). This is reported, not
+  inferred — the orchestrator/maintainer should decide whether to (a) accept 902 lines as one PR-2,
+  or (b) split into PR-2a (020..022) and PR-2b (030..031).
+
+### Remaining tasks (next slices — NOT in this attempt)
+
+- [ ] TASK-040..046 auth module (register/login/refresh/revoke/MFA/sessions/mandatory-MFA)
+- [ ] TASK-050 users CRUD + profile + password change
+- [ ] TASK-060 organizations + properties CRUD
+- [ ] TASK-070 permission registry + base role seeding
+- [ ] TASK-080 audit service + admin query endpoint
+- [ ] TASK-090 cross-tenant isolation suite
+- [ ] TASK-100 frontend auth screens
+- [ ] TASK-110..113 docker, CI, bootstrap CLI, docs
