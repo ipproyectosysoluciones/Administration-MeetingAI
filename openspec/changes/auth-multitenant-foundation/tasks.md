@@ -39,8 +39,8 @@ Sources: `proposal.md`, `specs/**/spec.md`, `architecture.md`, `data-model.md`, 
 
 - [x] **TASK-040** `feat: POST /auth/register (org + org-admin)` — creates organization + tenant + admin user + base roles seeding. Tests: happy path, duplicate, tenant bootstrapped correctly.
 - [x] **TASK-041** `feat: POST /auth/login with MFA gate` — Argon2id verify, MFA challenge for enrolled users. Tests: bad password, MFA-required flow, audit event written.
+- [x] **TASK-042** `feat: POST /auth/refresh with rotation + reuse detection` — chain revocation on reuse per architecture §4.2. Tests: rotation, reuse → whole chain revoked (401), expired.
 
-- [ ] **TASK-042** `feat: POST /auth/refresh with rotation + reuse detection` — chain revocation on reuse per architecture §4.2. Tests: rotation, reuse → whole chain revoked (401), expired.
 - [ ] **TASK-043** `feat: POST /auth/revoke + logout` — session revocation. Tests: token no longer valid.
 - [ ] **TASK-044** `feat: MFA TOTP setup/verify/disable/recovery codes` — `/auth/mfa/*`. Tests: TOTP code verify, recovery code single-use, disable requires auth.
 - [ ] **TASK-045** `feat: session management GET/DELETE /users/me/sessions` — list + revoke any session. Tests: revoke other session, current session flagged.

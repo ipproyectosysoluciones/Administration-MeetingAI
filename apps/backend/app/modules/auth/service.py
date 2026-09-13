@@ -184,6 +184,9 @@ class AuthService:
                 return leaf
 
         await self._revoke_chain(session, token)
+        # Persist the chain revocation before rejecting, so a replay genuinely
+        # invalidates the live sibling too (scenario "replayed token revokes chain").
+        await session.commit()
         if replaced:
             raise APIError(401, "REFRESH_TOKEN_REUSE_DETECTED")
         raise APIError(401, "INVALID_REFRESH_TOKEN")
