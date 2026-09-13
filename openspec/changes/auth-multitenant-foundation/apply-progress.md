@@ -561,3 +561,119 @@ Commands (final green):
 - [ ] TASK-090 cross-tenant isolation suite
 - [ ] TASK-100 frontend auth screens
 - [ ] TASK-110..113 docker, CI, bootstrap CLI, docs
+
+---
+
+## PR-3, work-unit slice C (PR-3c) — Phase 4 auth, TASK-045 + TASK-046 (sessions + mandatory MFA)
+
+**Branch:** `feature/auth-multitenant-foundation-pr3c` (from pr3b, feature-branch-chain).
+
+### Status guard
+
+Same resolved guard as all prior slices: the "design.md missing" blocker is a filename mismatch —
+design content lives in `architecture.md` §4.4 / `api-contract.md` §3.4-3.5 / `data-model.md` §4 /
+`specs/auth/spec.md` / `test-plan.md`, referenced explicitly by the orchestrator. No substantive
+design gap. `actionContext` is `repo-local`, single workspace root, no warnings.
+
+### Review workload gate
+
+`tasks.md` forecast already resolved by the orchestrator to chained PRs (feature-branch-chain, 6 PRs);
+PR-3c is the assigned work-unit slice for TASK-045 + TASK-046. Delivery path is `auto-chain` (slice
+boundary provided by the parent), so no `size:exception` decision is required from me — the overage is
+reported below, not inferred.
+
+### Completed tasks (this slice)
+
+- [x] **TASK-045** — `GET /users/me/sessions` (list active sessions, current flagged via the httpOnly
+  refresh cookie) + `DELETE /users/me/sessions/{session_id}` (revoke one session; revoking the current
+  one = logout). Pagination shape per api-contract §3.4.
+- [x] **TASK-046** — mandatory MFA for `super_admin`/`org_admin`/`property_admin`: login blocks full
+  token issuance with 403 `MFA_REQUIRED_FOR_ROLE` when an admin holds none of MFA. Non-admins unaffected.
+
+`tasks.md` checkboxes updated to `- [x]` for TASK-045 + TASK-046 (19 → 21 of 31 complete).
+
+### Files changed (this slice)
+
+Backend (`apps/backend/`):
+
+- `app/modules/auth/schemas.py` — `SessionItem` + `SessionListResponse` (api-contract §3.4 shape).
+- `app/modules/auth/service.py` — `_ADMIN_ROLES` constant, `SessionDetail` dataclass, `list_sessions`,
+  `revoke_session`, `_holds_admin_role`; `login` now raises 403 `MFA_REQUIRED_FOR_ROLE` for an
+  admin-scope role without MFA.
+- `app/modules/auth/router.py` — `GET /users/me/sessions` + `DELETE /users/me/sessions/{session_id}`
+  (self-service under `require_auth`).
+- `tests/integration/auth/test_sessions.py` — 5 tests (list+current flag, revoke other, revoke current
+  = logout, 404 unknown, 401 unauthenticated).
+- `tests/integration/auth/test_mfa_enforcement.py` — parametrized (org_admin/property_admin/super_admin)
+  403 block + non-admin unaffected.
+- `tests/integration/auth/test_login.py` — updated 2 tests for the new mandatory-MFA spec (see deviations).
+
+Docs (apply artifacts):
+
+- `openspec/changes/auth-multitenant-foundation/tasks.md` (checkbox updates)
+- `openspec/changes/auth-multitenant-foundation/apply-progress.md` (this file)
+
+### TDD cycle evidence (strict)
+
+Runner: `cd apps/backend && .venv/bin/python -m pytest` against Docker PostgreSQL
+(`reunionai-test-pg`, `postgresql+asyncpg://reunionai:reunionai@localhost:5433/reunionai`).
+
+| Task | RED | GREEN | Runner |
+| --- | --- | --- | --- |
+| 045 list/revoke | 5 sessions tests failed (routes absent → 404/401 vs expected 200) | 5 passed | pytest |
+| 046 mandatory MFA | `test_admin_login_without_mfa_is_blocked` failed with `assert 200 == 403` | 4 passed | pytest |
+| TRIANGULATE | added property_admin + super_admin cases (parametrized), 404 + auth-required cases | 9 new+updated tests green | pytest |
+| REFACTOR | `ruff format` (4 files) + `ruff check` + `mypy` | all clean | ruff + mypy |
+
+Commands (final green):
+
+- `.venv/bin/python -m pytest -q` → `77 passed` (68 prior + 9 added/adjusted)
+- `.venv/bin/ruff check app/ tests/ alembic/` → `All checks passed!`
+- `.venv/bin/ruff format --check app/ tests/` → `43 files already formatted`
+- `.venv/bin/mypy app tests alembic` → `Success: no issues found in 48 source files`
+
+### Deviations from design
+
+1. **`design.md` naming** — same resolved mismatch as prior slices (content in architecture/api-contract/
+   data-model).
+2. **Session endpoints gated on `require_auth()` (self), not `user.session.read`/`user.session.revoke`.**
+   Those permissions are only granted to `org_admin`/`super_admin` in the base-role matrices, but the
+   spec ("a user MUST list all their active sessions"; api-contract "(self)" suffix) makes session
+   management a self-service capability for every authenticated user. Mirroring PR-3a's `auth.revoke`
+   and PR-3b's MFA deviations; admin cross-user session management is out of scope. The `user.session.*`
+   permissions stay reserved for future admin-facing session endpoints.
+3. **`Session.ip` is stringified on serialization.** `postgresql.INET` returns `ipaddress` objects via
+   asyncpg, so `SessionDetail.ip` uses `str(...)` to match the api-contract's JSON string shape.
+4. **Mandatory-MFA enforcement is login-only (403 `MFA_REQUIRED_FOR_ROLE`), matching `test-plan.md`'s
+   `test_login_blocks_admin_without_mfa`. Registration still issues initial tokens (the first org-admin
+   must be able to enroll MFA), and refresh of an already-issued token is not re-gated — tightening
+   refresh would strand the enrollment bootstrap. A gated `mfa_setup_token` flow (architecture §4.4's
+   `require_mfa_for_role` "blocks login") is deferred; this slice returns the 403 the test-plan specifies.
+5. **Admin-role detection reads the authoritative `user_roles` → `roles` assignment (+ `is_super_admin`
+   flag), not the denormalized `membership.role` string**, which the resolver never uses for authorization.
+6. **Two pre-existing login tests updated for the new spec** (`test_login_returns_tokens_when_no_mfa` →
+   renamed `..._for_non_admin_without_mfa` and demotes to resident first; `test_login_writes_audit_event`
+   demotes before asserting the audit row). This is a spec-driven update (admin-without-MFA now correctly
+   403s), not a weakening: the "password-only login" happy path is now exercised on a non-admin.
+
+### Workload / PR boundary
+
+- **Actual changed lines: ~530 (525 insertions / 5 deletions)** — service 114, router 52, schemas 20,
+  `test_login.py` 40, plus two new test files (183 + 120). **~1.3× the 400-line budget.**
+- **Honesty check:** no padding; the bulk is the two test files (303 lines) required by strict TDD and the
+  test-plan's per-task coverage. TASK-045 and TASK-046 share the auth service module (the MFA gate lives in
+  `login` alongside the session helpers), so no cohesive sub-split brings each under 400 while leaving both
+  independently landing — this is the parent-assigned PR-3c unit and the smallest overage of the change so
+  far (PR-3a ~3.9×, PR-3b ~1.6×, PR-2 ~2.25×).
+- **No `size:exception` claimed** (requires explicit maintainer acceptance); the overage is reported, not
+  inferred. Per-task commits would be ~265 lines (sessions) + ~265 lines (MFA) if a strict split is needed.
+
+### Remaining tasks (next slices — NOT in this attempt)
+
+- [ ] TASK-050 users CRUD + profile + password change
+- [ ] TASK-060 organizations + properties CRUD
+- [ ] TASK-070 permission registry + base role seeding
+- [ ] TASK-080 audit service + admin query endpoint
+- [ ] TASK-090 cross-tenant isolation suite
+- [ ] TASK-100 frontend auth screens
+- [ ] TASK-110..113 docker, CI, bootstrap CLI, docs

@@ -29,6 +29,7 @@ from app.modules.rbac.resolver import resolve_auth_context
 from app.modules.users.models import User
 
 ORG_ADMIN_ROLE = "org_admin"
+_ADMIN_ROLES = frozenset({"super_admin", "org_admin", "property_admin"})
 _RECOVERY_CODE_COUNT = 8
 
 
@@ -85,6 +86,18 @@ class MfaSetupResult:
     secret: str
     qr_code_uri: str
     backup_codes: list[str]
+
+
+@dataclass
+class SessionDetail:
+    """An active session, with the caller's own device flagged ``is_current``."""
+
+    id: uuid.UUID
+    user_agent: str | None
+    ip: str | None
+    last_activity_at: datetime
+    created_at: datetime
+    is_current: bool
 
 
 class AuthService:
@@ -167,6 +180,8 @@ class AuthService:
                 mfa_token=self._jwt_service.create_mfa_token(user.id),
                 email=user.email,
             )
+        if await self._holds_admin_role(session, user):
+            raise APIError(403, "MFA_REQUIRED_FOR_ROLE", "MFA enrollment is required for this role")
 
         user.last_login_at = datetime.now(UTC)
         result = await self._issue(session, user, ip, user_agent)
@@ -428,6 +443,105 @@ class AuthService:
         await session.delete(device)
         await session.flush()
         return True
+
+    # -- sessions --------------------------------------------------------------
+
+    async def list_sessions(
+        self,
+        session: AsyncSession,
+        user_id: uuid.UUID,
+        current_refresh_token: str | None,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[SessionDetail], int]:
+        """Return the user's active sessions (page slice) with ``is_current`` set.
+
+        An active session is one whose refresh token is neither revoked nor expired;
+        the current session is the one whose refresh token matches the caller's
+        httpOnly cookie token (``current_refresh_token``).
+        """
+        current_id: uuid.UUID | None = None
+        if current_refresh_token:
+            current_id = (
+                await session.execute(
+                    select(RefreshToken.id).where(
+                        RefreshToken.token_hash == _hash_token(current_refresh_token)
+                    )
+                )
+            ).scalar_one_or_none()
+
+        rows = (
+            (
+                await session.execute(
+                    select(Session)
+                    .join(RefreshToken, Session.refresh_token_id == RefreshToken.id)
+                    .where(Session.user_id == user_id)
+                    .where(RefreshToken.revoked_at.is_(None))
+                    .where(RefreshToken.expires_at > datetime.now(UTC))
+                    .order_by(Session.created_at.desc())
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        items = [
+            SessionDetail(
+                id=row.id,
+                user_agent=row.user_agent,
+                ip=str(row.ip) if row.ip is not None else None,
+                last_activity_at=row.last_activity_at,
+                created_at=row.created_at,
+                is_current=row.refresh_token_id == current_id,
+            )
+            for row in rows
+        ]
+        total = len(items)
+        start = (page - 1) * page_size
+        return items[start : start + page_size], total
+
+    async def revoke_session(
+        self,
+        session: AsyncSession,
+        user_id: uuid.UUID,
+        session_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        ip: str | None,
+        user_agent: str | None,
+    ) -> None:
+        """Revoke a single session (only its refresh token; others stay valid)."""
+        sess = (
+            await session.execute(
+                select(Session).where(Session.id == session_id, Session.user_id == user_id)
+            )
+        ).scalar_one_or_none()
+        if sess is None:
+            raise APIError(404, "SESSION_NOT_FOUND", "Session not found")
+        token = await session.get(RefreshToken, sess.refresh_token_id)
+        if token is not None and token.revoked_at is None:
+            token.revoked_at = datetime.now(UTC)
+            session.add(token)
+        self._record_audit(
+            session, user_id, tenant_id, "auth.session.revoke", "session", sess.id, ip, user_agent
+        )
+        await session.commit()
+
+    async def _holds_admin_role(self, session: AsyncSession, user: User) -> bool:
+        """True when ``user`` holds an admin-scope role (data-model §4, mandatory MFA)."""
+        if user.is_super_admin:
+            return True
+        names = (
+            (
+                await session.execute(
+                    select(Role.name)
+                    .join(UserRole, UserRole.role_id == Role.id)
+                    .where(UserRole.user_id == user.id, Role.name.in_(_ADMIN_ROLES))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return bool(names)
 
     # -- helpers --------------------------------------------------------------
 

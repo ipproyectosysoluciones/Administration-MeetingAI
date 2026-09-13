@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel
 
@@ -59,3 +60,22 @@ class MfaChallengeRequest(BaseModel):
 class MfaStatusResponse(BaseModel):
     message: str
     mfa_enabled: bool
+
+
+class SessionItem(BaseModel):
+    """A single active session (api-contract.md §3.4)."""
+
+    id: uuid.UUID
+    user_agent: str | None
+    ip: str | None
+    last_activity_at: datetime
+    created_at: datetime
+    is_current: bool
+
+
+class SessionListResponse(BaseModel):
+    items: list[SessionItem]
+    total: int
+    page: int
+    page_size: int
+    pages: int

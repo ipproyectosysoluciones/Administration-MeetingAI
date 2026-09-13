@@ -10,10 +10,11 @@ import uuid
 
 import httpx
 from fastapi import FastAPI
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.modules.audit.models import AuditEvent
+from app.modules.rbac.models import Role, UserRole
 from app.modules.users.models import User
 
 
@@ -53,9 +54,34 @@ async def _set_user_flags(
         await session.commit()
 
 
-async def test_login_returns_tokens_when_no_mfa(auth_app: FastAPI) -> None:
+async def _demote_to_resident(
+    session_factory: async_sessionmaker, user_id: uuid.UUID, organization_id: uuid.UUID
+) -> None:
+    """Replace role assignments with the non-admin ``resident`` base role."""
+    async with session_factory() as session:
+        resident_role_id = (
+            await session.execute(
+                select(Role.id).where(Role.name == "resident", Role.organization_id.is_(None))
+            )
+        ).scalar_one()
+        await session.execute(delete(UserRole).where(UserRole.user_id == user_id))
+        session.add(
+            UserRole(user_id=user_id, role_id=resident_role_id, organization_id=organization_id)
+        )
+        await session.commit()
+
+
+async def test_login_returns_tokens_for_non_admin_without_mfa(
+    auth_app: FastAPI, session_factory: async_sessionmaker
+) -> None:
+    """A non-administrative user logs in without MFA; admins are gated (TASK-046)."""
     payload = _payload()
-    await _register(auth_app, payload)
+    reg = await _register(auth_app, payload)
+    await _demote_to_resident(
+        session_factory,
+        uuid.UUID(reg.json()["user"]["id"]),
+        uuid.UUID(reg.json()["user"]["tenant_id"]),
+    )
 
     resp = await _login(auth_app, payload["email"], payload["password"])
 
@@ -114,8 +140,14 @@ async def test_login_writes_audit_event(
     payload = _payload()
     reg = await _register(auth_app, payload)
     user_id = reg.json()["user"]["id"]
+    await _demote_to_resident(
+        session_factory,
+        uuid.UUID(user_id),
+        uuid.UUID(reg.json()["user"]["tenant_id"]),
+    )
 
-    await _login(auth_app, payload["email"], payload["password"])
+    resp = await _login(auth_app, payload["email"], payload["password"])
+    assert resp.status_code == 200, resp.text
 
     async with session_factory() as session:
         events = (

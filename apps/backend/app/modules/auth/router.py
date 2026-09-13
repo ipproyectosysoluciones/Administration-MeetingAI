@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -26,6 +26,8 @@ from app.modules.auth.schemas import (
     MfaStatusResponse,
     MfaVerifyRequest,
     RegisterRequest,
+    SessionItem,
+    SessionListResponse,
     TokenResponse,
     UserResponse,
 )
@@ -244,3 +246,52 @@ async def mfa_challenge(
     )
     _set_refresh_cookie(response, result.refresh_token, settings)
     return _token_response(result)
+
+
+@router.get("/users/me/sessions")
+async def list_sessions(
+    request: Request,
+    db: Db,
+    context: Authenticated,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> SessionListResponse:
+    if context.tenant_id is None:
+        raise APIError(403, "NO_ACTIVE_MEMBERSHIP")
+    refresh_token = request.cookies.get(REFRESH_COOKIE)
+    items, total = await _service(request).list_sessions(
+        db, context.user_id, refresh_token, page, page_size
+    )
+    pages = (total + page_size - 1) // page_size if total else 1
+    return SessionListResponse(
+        items=[
+            SessionItem(
+                id=item.id,
+                user_agent=item.user_agent,
+                ip=item.ip,
+                last_activity_at=item.last_activity_at,
+                created_at=item.created_at,
+                is_current=item.is_current,
+            )
+            for item in items
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
+    )
+
+
+@router.delete("/users/me/sessions/{session_id}")
+async def revoke_session(
+    session_id: uuid.UUID,
+    request: Request,
+    db: Db,
+    context: Authenticated,
+) -> dict[str, str]:
+    if context.tenant_id is None:
+        raise APIError(403, "NO_ACTIVE_MEMBERSHIP")
+    await _service(request).revoke_session(
+        db, context.user_id, session_id, context.tenant_id, _ip(request), _user_agent(request)
+    )
+    return {"message": "Session revoked"}
