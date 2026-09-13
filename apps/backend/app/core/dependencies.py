@@ -14,12 +14,13 @@ composes JWT authentication (``core.security.JWTService``) with an injected
 from __future__ import annotations
 
 import uuid
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
 from fastapi import HTTPException, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
     ExpiredTokenError,
@@ -116,6 +117,44 @@ def _bearer_token(request: Request) -> str | None:
     return token.strip()
 
 
+async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
+    """Yield an ``AsyncSession`` from the app's configured session factory.
+
+    The factory is pinned on ``app.state.session_factory`` by ``create_app``, so
+    tests can inject a session bound to a dedicated database.
+    """
+    factory = request.app.state.session_factory
+    async with factory() as session:
+        yield session
+
+
+async def _resolve_authenticated(request: Request) -> AuthContext:
+    """Decode the bearer token and DB-resolve the AuthContext (shared by deps)."""
+    jwt_service: JWTService = request.app.state.jwt_service
+    resolver: AuthorizationResolver = request.app.state.authorization_resolver
+    token = _bearer_token(request)
+    if token is None or jwt_service is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = jwt_service.decode_access_token(token)
+    except (InvalidTokenError, ExpiredTokenError) as exc:
+        raise HTTPException(status_code=401, detail="Not authenticated") from exc
+    user_id = uuid.UUID(payload["sub"])
+    try:
+        return await resolver.resolve_context(user_id)
+    except TenantResolutionError as exc:
+        raise HTTPException(status_code=403, detail="No active membership") from exc
+
+
+def require_auth() -> Callable[[Request], Awaitable[AuthContext]]:
+    """FastAPI dependency returning the authenticated AuthContext (no permission gate).
+
+    Self-service endpoints (e.g. logout) need an authenticated identity but no
+    specific ``resource.action`` permission; ``require_auth`` provides exactly that.
+    """
+    return _resolve_authenticated
+
+
 def require_permission(permission: str) -> Callable[[Request], Awaitable[AuthContext]]:
     """FastAPI dependency enforcing ``resource.action`` (401 vs 403).
 
@@ -130,20 +169,7 @@ def require_permission(permission: str) -> Callable[[Request], Awaitable[AuthCon
     """
 
     async def dependency(request: Request) -> AuthContext:
-        jwt_service: JWTService = request.app.state.jwt_service
-        resolver: AuthorizationResolver = request.app.state.authorization_resolver
-        token = _bearer_token(request)
-        if token is None:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-        try:
-            payload = jwt_service.decode_access_token(token)
-        except (InvalidTokenError, ExpiredTokenError) as exc:
-            raise HTTPException(status_code=401, detail="Not authenticated") from exc
-        user_id = uuid.UUID(payload["sub"])
-        try:
-            context = await resolver.resolve_context(user_id)
-        except TenantResolutionError as exc:
-            raise HTTPException(status_code=403, detail="No active membership") from exc
+        context = await _resolve_authenticated(request)
         if not context.has_permission(permission):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return context
@@ -156,6 +182,8 @@ __all__ = [
     "AuthorizationResolver",
     "Membership",
     "Role",
+    "get_db",
+    "require_auth",
     "require_permission",
     "resolve_active_membership",
     "resolve_permissions",

@@ -36,7 +36,22 @@ class TenantResolutionError(SecurityError):
     """No active membership/tenant could be resolved for the user (HTTP 403)."""
 
 
+class APIError(Exception):
+    """Domain error carrying an HTTP status and a stable machine-readable ``code``.
+
+    The handler in ``app.main`` serializes this to ``{"code": ..., "message": ...}``
+    (api-contract.md §7 error reference), keeping error shapes uniform across modules.
+    """
+
+    def __init__(self, status_code: int, code: str, message: str | None = None) -> None:
+        super().__init__(message or code)
+        self.status_code = status_code
+        self.code = code
+        self.message = message or code
+
+
 __all__ = [
+    "APIError",
     "AuthenticationError",
     "AuthorizationError",
     "ExpiredTokenError",
