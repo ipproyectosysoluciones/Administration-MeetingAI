@@ -44,9 +44,7 @@ async def test_revoke_invalidates_refresh_token(auth_app: FastAPI) -> None:
         assert revoke.json() == {"message": "Session revoked successfully"}
 
         # Subsequent refresh with the revoked token fails.
-        refresh = await client.post(
-            "/api/v1/auth/refresh", cookies={"refresh_token": old_refresh}
-        )
+        refresh = await client.post("/api/v1/auth/refresh", cookies={"refresh_token": old_refresh})
         assert refresh.status_code == 401
 
 
@@ -77,6 +75,8 @@ async def test_revoke_writes_audit_event(
 
     async with session_factory() as session:
         events = (
-            await session.execute(select(AuditEvent).where(AuditEvent.action == "auth.revoke"))
-        ).scalars().all()
+            (await session.execute(select(AuditEvent).where(AuditEvent.action == "auth.revoke")))
+            .scalars()
+            .all()
+        )
         assert any(e.actor_user_id == uuid.UUID(user_id) for e in events)

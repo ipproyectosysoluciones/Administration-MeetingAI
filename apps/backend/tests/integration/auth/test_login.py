@@ -119,6 +119,8 @@ async def test_login_writes_audit_event(
 
     async with session_factory() as session:
         events = (
-            await session.execute(select(AuditEvent).where(AuditEvent.action == "auth.login"))
-        ).scalars().all()
+            (await session.execute(select(AuditEvent).where(AuditEvent.action == "auth.login")))
+            .scalars()
+            .all()
+        )
         assert any(e.actor_user_id == uuid.UUID(user_id) for e in events)
