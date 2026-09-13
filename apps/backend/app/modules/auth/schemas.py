@@ -36,3 +36,26 @@ class TokenResponse(BaseModel):
     expires_in: int
     user: UserResponse
     mfa_required: bool = False
+
+
+class MfaSetupResponse(BaseModel):
+    secret: str
+    qr_code_uri: str
+    backup_codes: list[str]
+
+
+class MfaVerifyRequest(BaseModel):
+    code: str
+
+
+class MfaDisableRequest(BaseModel):
+    password: str
+
+
+class MfaChallengeRequest(BaseModel):
+    code: str
+
+
+class MfaStatusResponse(BaseModel):
+    message: str
+    mfa_enabled: bool

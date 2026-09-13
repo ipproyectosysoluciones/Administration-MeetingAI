@@ -7,6 +7,7 @@ bodies); access tokens are returned in the JSON body.
 
 from __future__ import annotations
 
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -14,11 +15,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.dependencies import AuthContext, get_db, require_auth
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, ExpiredTokenError, InvalidTokenError
 from app.core.middleware.rate_limit import InMemoryRateLimiter
 from app.core.security import JWTService
-from app.modules.auth.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
-from app.modules.auth.service import AuthResult, AuthService
+from app.modules.auth.schemas import (
+    LoginRequest,
+    MfaChallengeRequest,
+    MfaDisableRequest,
+    MfaSetupResponse,
+    MfaStatusResponse,
+    MfaVerifyRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+)
+from app.modules.auth.service import AuthResult, AuthService, MFAPending
 
 router = APIRouter(tags=["auth"])
 
@@ -34,6 +45,16 @@ def _ip(request: Request) -> str | None:
 
 def _user_agent(request: Request) -> str | None:
     return request.headers.get("user-agent")
+
+
+def _bearer_token(request: Request) -> str | None:
+    header = request.headers.get("Authorization")
+    if header is None:
+        return None
+    scheme, _, token = header.partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        return None
+    return token.strip()
 
 
 def _service(request: Request) -> AuthService:
@@ -123,8 +144,12 @@ async def login(
     result = await _service(request).login(
         db, payload.email, payload.password, _ip(request), _user_agent(request)
     )
-    if result is None:
-        return {"mfa_required": True, "message": "MFA verification required"}
+    if isinstance(result, MFAPending):
+        return {
+            "mfa_required": True,
+            "mfa_token": result.mfa_token,
+            "message": "MFA verification required",
+        }
     _set_refresh_cookie(response, result.refresh_token, settings)
     return _token_response(result)
 
@@ -152,3 +177,70 @@ async def revoke(request: Request, db: Db, context: Authenticated) -> dict[str, 
         db, context.user_id, raw_token, context.tenant_id, _ip(request), _user_agent(request)
     )
     return {"message": "Session revoked successfully"}
+
+
+@router.post("/auth/mfa/setup")
+async def mfa_setup(request: Request, db: Db, context: Authenticated) -> MfaSetupResponse:
+    settings: Settings = request.app.state.settings
+    ip = _ip(request) or "unknown"
+    _check_rate_limit(request, "mfa", ip, settings.rate_limit_mfa_ip)
+    if context.tenant_id is None:
+        raise APIError(403, "NO_ACTIVE_MEMBERSHIP")
+    result = await _service(request).setup_mfa(
+        db, context.user_id, context.tenant_id, _ip(request), _user_agent(request)
+    )
+    return MfaSetupResponse(
+        secret=result.secret,
+        qr_code_uri=result.qr_code_uri,
+        backup_codes=result.backup_codes,
+    )
+
+
+@router.post("/auth/mfa/verify")
+async def mfa_verify(
+    payload: MfaVerifyRequest, request: Request, db: Db, context: Authenticated
+) -> MfaStatusResponse:
+    if context.tenant_id is None:
+        raise APIError(403, "NO_ACTIVE_MEMBERSHIP")
+    await _service(request).verify_mfa(
+        db, context.user_id, payload.code, context.tenant_id, _ip(request), _user_agent(request)
+    )
+    return MfaStatusResponse(message="MFA enabled successfully", mfa_enabled=True)
+
+
+@router.post("/auth/mfa/disable")
+async def mfa_disable(
+    payload: MfaDisableRequest, request: Request, db: Db, context: Authenticated
+) -> MfaStatusResponse:
+    if context.tenant_id is None:
+        raise APIError(403, "NO_ACTIVE_MEMBERSHIP")
+    await _service(request).disable_mfa(
+        db, context.user_id, payload.password, context.tenant_id, _ip(request), _user_agent(request)
+    )
+    return MfaStatusResponse(message="MFA disabled successfully", mfa_enabled=False)
+
+
+@router.post("/auth/mfa/challenge")
+async def mfa_challenge(
+    payload: MfaChallengeRequest, request: Request, response: Response, db: Db
+) -> TokenResponse:
+    settings: Settings = request.app.state.settings
+    jwt_service: JWTService | None = request.app.state.jwt_service
+    if jwt_service is None:
+        raise APIError(500, "JWT_NOT_CONFIGURED", "JWT keys are not configured")
+    token = _bearer_token(request)
+    if token is None:
+        raise APIError(401, "INVALID_MFA_TOKEN", "MFA token missing")
+    try:
+        claims = jwt_service.decode_mfa_token(token)
+    except (InvalidTokenError, ExpiredTokenError) as exc:
+        raise APIError(401, "INVALID_MFA_TOKEN", "Invalid or expired MFA token") from exc
+    user_id = uuid.UUID(claims["sub"])
+    ip = _ip(request) or "unknown"
+    _check_rate_limit(request, "mfa", ip, settings.rate_limit_mfa_ip)
+    _check_rate_limit(request, "mfa:user", str(user_id), settings.rate_limit_mfa_user)
+    result = await _service(request).complete_mfa_login(
+        db, user_id, payload.code, _ip(request), _user_agent(request)
+    )
+    _set_refresh_cookie(response, result.refresh_token, settings)
+    return _token_response(result)

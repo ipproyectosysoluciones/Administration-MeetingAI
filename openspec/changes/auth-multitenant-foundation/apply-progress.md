@@ -446,3 +446,118 @@ Final commands (green):
 - [ ] TASK-090 cross-tenant isolation suite
 - [ ] TASK-100 frontend auth screens
 - [ ] TASK-110..113 docker, CI, bootstrap CLI, docs
+
+---
+
+## PR-3, work-unit slice B (PR-3b) — Phase 4 auth, TASK-044 (MFA TOTP + recovery codes)
+
+**Branch:** `feature/auth-multitenant-foundation-pr3b` (from pr3a, feature-branch-chain).
+
+### Status guard
+
+Same resolved guard as prior slices: the "design.md missing" blocker is a filename mismatch —
+design content lives in `architecture.md` §4.4 / `api-contract.md` §2.5–2.8 / `data-model.md` §2.2 /
+`specs/auth/spec.md` / `test-plan.md`, referenced explicitly by the orchestrator. No substantive
+design gap. `actionContext` is `repo-local`, single workspace root, no warnings.
+
+### Completed tasks (this slice)
+
+- [x] **TASK-044** — MFA TOTP endpoints `/auth/mfa/setup`, `/auth/mfa/verify`, `/auth/mfa/disable`,
+  `/auth/mfa/challenge`, single-use recovery codes, and completion of the PR-3a login MFA hook into a
+  real short-lived `mfa_token`.
+
+`tasks.md` checkbox updated to `- [x]` for TASK-044.
+
+### Files changed (this slice)
+
+Backend (`apps/backend/`):
+
+- `app/core/security.py` — `TOTP` (RFC 6238, stdlib hmac/hashlib) + `JWTService.create_mfa_token` /
+  `decode_mfa_token` (5-min `mfa: true` token); `decode_access_token` now rejects `mfa: true` tokens.
+  Narrowed `_load_private_key`/`_load_public_key` return types to `RSAPrivateKey`/`RSAPublicKey`
+  (fixes a latent PyJWT type-stub warning on the existing `create_access_token`/`decode_access_token`).
+- `app/modules/auth/models.py` — `MFADevice` ORM model (maps existing migration `0002_auth`).
+- `app/modules/auth/schemas.py` — `MfaSetupResponse`, `MfaVerifyRequest`, `MfaDisableRequest`,
+  `MfaChallengeRequest`, `MfaStatusResponse`.
+- `app/modules/auth/service.py` — `MFAPending`/`MfaSetupResult`, recovery-code helpers, and methods
+  `setup_mfa`, `verify_mfa`, `disable_mfa`, `complete_mfa_login`, `_verify_mfa_code`; `login` now
+  returns `MFAPending(mfa_token=…)` instead of `None` when MFA is enabled.
+- `app/modules/auth/router.py` — four `/auth/mfa/*` routes (setup/verify/disable self-service under
+  `require_auth`; challenge under the bearer `mfa_token`), `_bearer_token` helper, login returns the
+  `mfa_token`.
+- `tests/integration/auth/test_mfa.py` — 8 integration tests (setup, verify reject/enable, challenge
+  full-token + wrong-code, recovery single-use, disable password/require-auth, setup-already-enabled).
+
+Docs (apply artifacts):
+
+- `openspec/changes/auth-multitenant-foundation/tasks.md` (TASK-044 checkbox)
+- `openspec/changes/auth-multitenant-foundation/apply-progress.md` (this file)
+
+### TDD cycle evidence (strict)
+
+Runner: `cd apps/backend && .venv/bin/python -m pytest` against Docker PostgreSQL
+(`reunionai-test-pg`, `postgresql+asyncpg://reunionai:reunionai@localhost:5433/reunionai`).
+
+| Phase | Evidence | Result |
+| --- | --- | --- |
+| RED | `ImportError: cannot import name 'TOTP' from 'app.core.security'` (endpoint/TOTP absent) | collection error |
+| GREEN | `pytest tests/integration/auth/test_mfa.py -q` after TOTP + models + service + router | `5 passed` |
+| TRIANGULATE | added wrong-challenge-code, setup-already-enabled, require-auth tests | `8 passed` |
+| REFACTOR | `ruff format` + `ruff check --fix` (import order, blank lines); mypy clean | all clean |
+
+Commands (final green):
+
+- `.venv/bin/python -m pytest -q` → `68 passed` (60 prior + 8 MFA)
+- `.venv/bin/ruff check app/ tests/` → `All checks passed!`
+- `.venv/bin/ruff format --check app/ tests/` → `41 files already formatted`
+- `.venv/bin/mypy app tests` → `Success: no issues found in 41 source files`
+
+### Deviations from design
+
+1. **`design.md` naming** — same resolved mismatch as prior slices (content in architecture/api-contract/
+   data-model).
+2. **MFA endpoints gated on `require_auth()`, not `require_permission("auth.mfa.manage")`.** The seeded
+   permission is `auth.mfa.manage` (data-model §4 / migration 003) but it is **not** granted to any base
+   role — including `org_admin` — so gating all four endpoints on it would make MFA enrollment impossible
+   for every user. MFA is inherently self-scoped (the caller's own account), mirroring PR-3a's
+   `auth.revoke` deviation. Note: spec.md says `user.mfa.manage` while api-contract/data-model say
+   `auth.mfa.manage` — an existing naming inconsistency; TASK-070 (permission registry/base-role seeding)
+   should reconcile it.
+3. **Recovery codes storage.** No dedicated `recovery_codes` column/table exists, and this slice adds no
+   migration (PR-1 owns DDL). Recovery codes are persisted one `mfa_devices` row each — `name=
+   "recovery-code-<i>"`, `secret_encrypted` = SHA-256 digest of the code — consumed by deleting the row
+   on use (single-use). `architecture.md` §8.2 lists "recovery codes not in MVP", but `api-contract.md`
+   §2.5 (`backup_codes`) + TASK-044 + orchestrator scope require them; implemented explicitly.
+4. **TOTP secret at rest is plaintext base32** in `users.mfa_secret` (architecture §4.4), not the
+   `mfa_devices.secret_encrypted` encrypted form implied by the column name (that column stores the
+   recovery-code *hashes* here). Matches the already-migrated `users.mfa_secret VARCHAR` column.
+5. **TOTP implemented on the stdlib** (`hmac`/`hashlib`/`struct`) rather than a third-party provider, per
+   AGENTS.md §5 "interchangeable provider interfaces"; `verify` uses a ±1-step window for clock drift.
+6. **`mfa_token` is a 5-minute JWT with `mfa: true`**; `decode_access_token` rejects `mfa: true` and
+   `decode_mfa_token` requires it, so the half-authenticated challenge token cannot satisfy
+   `require_auth`.
+
+### Workload / PR boundary
+
+- **Actual changed lines: 425 insertions / 19 deletions (5 tracked files) + 198 lines new test file ≈ 642
+  changed lines — ~1.6× the 400-line budget.**
+- **Honesty check:** no padding; the four endpoints + recovery codes + TOTP + the `mfa_token` handoff form
+  one cohesive enrollment/challenge unit — splitting setup/verify from challenge/disable would leave the
+  login→challenge flow broken (challenge depends on both the `mfa_token` issued at login and the recovery
+  codes minted at setup). A strict sub-split would be `setup+verify` (~endpoint pair) vs `disable+
+  challenge+recovery`, but neither lands independently by itself.
+- **No `size:exception` claimed** (requires explicit maintainer acceptance) — reported, not inferred.
+  Per-file: `security.py` +127/-1, `service.py` +167/-2, `router.py` +102/-6, `models.py` +25/-1,
+  `schemas.py` +23, `test_mfa.py` +198 (new).
+
+### Remaining tasks (next slices — NOT in this attempt)
+
+- [ ] TASK-045 session management GET/DELETE `/users/me/sessions`
+- [ ] TASK-046 mandatory MFA for admin roles
+- [ ] TASK-050 users CRUD + profile + password change
+- [ ] TASK-060 organizations + properties CRUD
+- [ ] TASK-070 permission registry + base role seeding
+- [ ] TASK-080 audit service + admin query endpoint
+- [ ] TASK-090 cross-tenant isolation suite
+- [ ] TASK-100 frontend auth screens
+- [ ] TASK-110..113 docker, CI, bootstrap CLI, docs

@@ -15,20 +15,21 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.exceptions import APIError, TenantResolutionError
-from app.core.security import JWTService, PasswordHasher
+from app.core.security import TOTP, JWTService, PasswordHasher
 from app.modules.audit.models import AuditEvent
-from app.modules.auth.models import RefreshToken, Session
+from app.modules.auth.models import MFADevice, RefreshToken, Session
 from app.modules.organizations.models import Membership, Organization
 from app.modules.rbac.models import Role, UserRole
 from app.modules.rbac.resolver import resolve_auth_context
 from app.modules.users.models import User
 
 ORG_ADMIN_ROLE = "org_admin"
+_RECOVERY_CODE_COUNT = 8
 
 
 def _hash_token(token: str) -> str:
@@ -37,6 +38,16 @@ def _hash_token(token: str) -> str:
 
 def _new_refresh_token() -> str:
     return secrets.token_urlsafe(48)
+
+
+def _new_recovery_codes() -> list[str]:
+    """Generate single-use recovery codes (10 hex chars each)."""
+    return [secrets.token_hex(5) for _ in range(_RECOVERY_CODE_COUNT)]
+
+
+def _hash_recovery_code(code: str) -> str:
+    """SHA-256 digest of a normalized recovery code (stored, never the plaintext)."""
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -57,6 +68,23 @@ class AuthResult:
     full_name: str | None
     is_active: bool
     mfa_enabled: bool
+
+
+@dataclass
+class MFAPending:
+    """Partial login result for an MFA-enabled user: a short-lived challenge token."""
+
+    mfa_token: str
+    email: str
+
+
+@dataclass
+class MfaSetupResult:
+    """TOTP enrollment output: provisioning secret, QR URI, one-time backup codes."""
+
+    secret: str
+    qr_code_uri: str
+    backup_codes: list[str]
 
 
 class AuthService:
@@ -127,7 +155,7 @@ class AuthService:
         password: str,
         ip: str | None,
         user_agent: str | None,
-    ) -> AuthResult | None:
+    ) -> AuthResult | MFAPending:
         email = email.strip().lower()
         user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
         if user is None or not self._password_hasher.verify(password, user.password_hash):
@@ -135,7 +163,10 @@ class AuthService:
         if not user.is_active or user.deleted_at is not None:
             raise APIError(403, "USER_INACTIVE", "User account is inactive")
         if user.mfa_enabled:
-            return None  # hook: the full MFA challenge lands in slice 3b
+            return MFAPending(
+                mfa_token=self._jwt_service.create_mfa_token(user.id),
+                email=user.email,
+            )
 
         user.last_login_at = datetime.now(UTC)
         result = await self._issue(session, user, ip, user_agent)
@@ -271,6 +302,132 @@ class AuthService:
             session, user_id, tenant_id, "auth.revoke", "session", token.id, ip, user_agent
         )
         await session.commit()
+
+    # -- MFA -----------------------------------------------------------------
+
+    async def setup_mfa(
+        self,
+        session: AsyncSession,
+        user_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        ip: str | None,
+        user_agent: str | None,
+    ) -> MfaSetupResult:
+        user = await session.get(User, user_id)
+        if user is None:
+            raise APIError(401, "INVALID_TOKEN")
+        if user.mfa_enabled:
+            raise APIError(403, "MFA_ALREADY_ENABLED")
+
+        secret = TOTP.generate_secret()
+        backup_codes = _new_recovery_codes()
+        user.mfa_secret = secret
+        await session.execute(delete(MFADevice).where(MFADevice.user_id == user_id))
+        for index, code in enumerate(backup_codes):
+            session.add(
+                MFADevice(
+                    user_id=user_id,
+                    name=f"recovery-code-{index}",
+                    secret_encrypted=_hash_recovery_code(code),
+                    is_primary=False,
+                )
+            )
+        self._record_audit(
+            session, user_id, tenant_id, "auth.mfa.setup", "user", user_id, ip, user_agent
+        )
+        await session.commit()
+        return MfaSetupResult(
+            secret=secret,
+            qr_code_uri=TOTP.provisioning_uri(secret, user.email),
+            backup_codes=backup_codes,
+        )
+
+    async def verify_mfa(
+        self,
+        session: AsyncSession,
+        user_id: uuid.UUID,
+        code: str,
+        tenant_id: uuid.UUID,
+        ip: str | None,
+        user_agent: str | None,
+    ) -> None:
+        user = await session.get(User, user_id)
+        if user is None or not user.mfa_secret:
+            raise APIError(403, "MFA_NOT_PENDING")
+        if not TOTP.verify(user.mfa_secret, code):
+            raise APIError(400, "INVALID_TOTP_CODE")
+        user.mfa_enabled = True
+        self._record_audit(
+            session, user_id, tenant_id, "auth.mfa.enabled", "user", user_id, ip, user_agent
+        )
+        await session.commit()
+
+    async def disable_mfa(
+        self,
+        session: AsyncSession,
+        user_id: uuid.UUID,
+        password: str,
+        tenant_id: uuid.UUID,
+        ip: str | None,
+        user_agent: str | None,
+    ) -> None:
+        user = await session.get(User, user_id)
+        if user is None or not user.mfa_enabled:
+            raise APIError(403, "MFA_NOT_ENABLED")
+        if not self._password_hasher.verify(password, user.password_hash):
+            raise APIError(400, "INVALID_PASSWORD")
+        user.mfa_enabled = False
+        user.mfa_secret = None
+        await session.execute(delete(MFADevice).where(MFADevice.user_id == user_id))
+        self._record_audit(
+            session, user_id, tenant_id, "auth.mfa.disabled", "user", user_id, ip, user_agent
+        )
+        await session.commit()
+
+    async def complete_mfa_login(
+        self,
+        session: AsyncSession,
+        user_id: uuid.UUID,
+        code: str,
+        ip: str | None,
+        user_agent: str | None,
+    ) -> AuthResult:
+        user = await session.get(User, user_id)
+        if user is None or not user.mfa_enabled:
+            raise APIError(401, "INVALID_MFA_TOKEN")
+        if not user.is_active or user.deleted_at is not None:
+            raise APIError(403, "USER_INACTIVE")
+        if not await self._verify_mfa_code(session, user, code):
+            raise APIError(400, "INVALID_TOTP_CODE")
+        user.last_login_at = datetime.now(UTC)
+        result = await self._issue(session, user, ip, user_agent)
+        self._record_audit(
+            session, user.id, result.tenant_id, "auth.login", "user", user.id, ip, user_agent
+        )
+        await session.commit()
+        return result
+
+    async def _verify_mfa_code(self, session: AsyncSession, user: User, code: str) -> bool:
+        """Accept a 6-digit TOTP code or a (single-use) recovery code."""
+        code = (code or "").strip()
+        if code.isdigit() and len(code) == 6:
+            secret = user.mfa_secret
+            return secret is not None and TOTP.verify(secret, code)
+        digest = _hash_recovery_code(code.replace("-", "").replace(" ", "").lower())
+        device = (
+            await session.execute(
+                select(MFADevice).where(
+                    MFADevice.user_id == user.id,
+                    MFADevice.secret_encrypted == digest,
+                    MFADevice.name.startswith("recovery-code-"),
+                )
+            )
+        ).scalar_one_or_none()
+        if device is None:
+            return False
+        await session.delete(device)
+        await session.flush()
+        return True
 
     # -- helpers --------------------------------------------------------------
 

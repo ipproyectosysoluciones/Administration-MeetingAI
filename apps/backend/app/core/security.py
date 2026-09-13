@@ -7,13 +7,20 @@ or `jwt` directly (AGENTS.md §5: interchangeable provider interfaces).
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import secrets
+import struct
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import jwt
 from argon2 import PasswordHasher as Argon2PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
 
 from app.core.config import Settings, get_settings
@@ -59,6 +66,70 @@ class PasswordHasher:
         return self._hasher.check_needs_rehash(encoded)
 
 
+class TOTP:
+    """RFC 6238 TOTP (SHA-1, 30-second step, 6 digits) — `architecture.md` §4.4.
+
+    Implemented directly over the stdlib (``hmac``/``hashlib``) rather than a
+    third-party provider so the math is testable against the RFC 6238 vectors and
+    no provider SDK leaks into callers (AGENTS.md §5: interchangeable interfaces).
+    """
+
+    ALGORITHM = "SHA1"
+    STEP_SECONDS = 30
+    DIGITS = 6
+    ISSUER = "ReunionAI"
+
+    @staticmethod
+    def generate_secret() -> str:
+        """Return a base32 (RFC 4648, unpadded) TOTP secret from 20 random bytes."""
+        return base64.b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
+
+    @classmethod
+    def provisioning_uri(cls, secret: str, account: str) -> str:
+        """Return the ``otpauth://`` URI used to render the enrollment QR code."""
+        return f"otpauth://totp/{cls.ISSUER}:{account}?secret={secret}&issuer={cls.ISSUER}"
+
+    @staticmethod
+    def _counter(now: float | None = None) -> int:
+        return int((now if now is not None else time.time()) // TOTP.STEP_SECONDS)
+
+    @staticmethod
+    def _decode_secret(secret: str) -> bytes:
+        normalized = secret.strip().upper().replace(" ", "")
+        return base64.b32decode(normalized + "=" * (-len(normalized) % 8))
+
+    @classmethod
+    def _generate_code(cls, secret: str, counter: int) -> str:
+        key = cls._decode_secret(secret)
+        digest = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+        offset = digest[-1] & 0x0F
+        binary = struct.unpack(">I", digest[offset : offset + 4])[0] & 0x7FFFFFFF
+        return str(binary % (10**cls.DIGITS)).zfill(cls.DIGITS)
+
+    @classmethod
+    def current_code(cls, secret: str, *, now: float | None = None) -> str:
+        """Return the current 6-digit code for ``secret`` (test/diagnostic helper)."""
+        return cls._generate_code(secret, cls._counter(now))
+
+    @classmethod
+    def verify(cls, secret: str, code: str, *, now: float | None = None, window: int = 1) -> bool:
+        """Verify a TOTP code with a ±``window`` step tolerance for clock drift.
+
+        The tolerance does not weaken the one-time property: each step's code is
+        still accepted at most once per window.
+        """
+        if not secret or not code:
+            return False
+        code = code.strip()
+        if len(code) != cls.DIGITS or not code.isdigit():
+            return False
+        counter = cls._counter(now)
+        return any(
+            cls._generate_code(secret, c) == code
+            for c in range(counter - window, counter + window + 1)
+        )
+
+
 class JWTService:
     """Issue and verify RS256 access tokens (`architecture.md` §4.1).
 
@@ -75,16 +146,16 @@ class JWTService:
         self._public_key = self._load_public_key(config.jwt_public_key)
 
     @staticmethod
-    def _load_private_key(pem: str):
+    def _load_private_key(pem: str) -> RSAPrivateKey:
         if not pem or not pem.strip():
             raise ValueError("JWT_PRIVATE_KEY is not configured")
-        return load_pem_private_key(pem.encode(), password=None)
+        return cast(RSAPrivateKey, load_pem_private_key(pem.encode(), password=None))
 
     @staticmethod
-    def _load_public_key(pem: str):
+    def _load_public_key(pem: str) -> RSAPublicKey:
         if not pem or not pem.strip():
             raise ValueError("JWT_PUBLIC_KEY is not configured")
-        return load_pem_public_key(pem.encode())
+        return cast(RSAPublicKey, load_pem_public_key(pem.encode()))
 
     def create_access_token(
         self,
@@ -109,10 +180,11 @@ class JWTService:
 
         Returns the decoded claim set. Claims are validated at runtime by PyJWT;
         ``Any`` reflects the heterogeneous JSON shape (``sub`` str, ``iat``/``exp``
-        int, ``perm`` list[str], etc.).
+        int, ``perm`` list[str], etc.). MFA challenge tokens (``mfa=True``) are
+        rejected: they are half-authenticated and must never satisfy ``require_auth``.
         """
         try:
-            return jwt.decode(
+            payload = jwt.decode(
                 token,
                 self._public_key,
                 algorithms=["RS256"],
@@ -122,6 +194,45 @@ class JWTService:
             raise ExpiredTokenError() from exc
         except jwt.InvalidTokenError as exc:
             raise InvalidTokenError() from exc
+        if payload.get("mfa") is True:
+            raise InvalidTokenError()
+        return payload
+
+    def create_mfa_token(self, user_id: uuid.UUID | str) -> str:
+        """Issue a short-lived (5-minute) MFA challenge token for ``user_id``.
+
+        Distinct from an access token via the ``mfa: true`` claim; it authorizes
+        only the ``POST /auth/mfa/challenge`` step, never a full authenticated
+        principal (architecture §4.4).
+        """
+        now = datetime.now(UTC)
+        payload: dict[str, object] = {
+            "sub": str(user_id),
+            "mfa": True,
+            "iat": now,
+            "exp": now + timedelta(minutes=_MFA_TOKEN_TTL_MINUTES),
+            "jti": str(uuid.uuid4()),
+        }
+        return jwt.encode(payload, self._private_key, algorithm="RS256")
+
+    def decode_mfa_token(self, token: str) -> dict[str, Any]:
+        """Verify an MFA challenge token; raises ``InvalidTokenError`` unless ``mfa``."""
+        try:
+            payload = jwt.decode(
+                token,
+                self._public_key,
+                algorithms=["RS256"],
+                options={"require": ["sub", "iat", "exp", "jti"]},
+            )
+        except jwt.ExpiredSignatureError as exc:
+            raise ExpiredTokenError() from exc
+        except jwt.InvalidTokenError as exc:
+            raise InvalidTokenError() from exc
+        if payload.get("mfa") is not True:
+            raise InvalidTokenError()
+        return payload
 
 
-__all__ = ["PasswordHasher", "JWTService"]
+_MFA_TOKEN_TTL_MINUTES = 5
+
+__all__ = ["JWTService", "PasswordHasher", "TOTP"]

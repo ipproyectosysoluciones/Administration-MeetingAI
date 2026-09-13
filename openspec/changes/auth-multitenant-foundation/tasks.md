@@ -42,7 +42,7 @@ Sources: `proposal.md`, `specs/**/spec.md`, `architecture.md`, `data-model.md`, 
 - [x] **TASK-042** `feat: POST /auth/refresh with rotation + reuse detection` — chain revocation on reuse per architecture §4.2. Tests: rotation, reuse → whole chain revoked (401), expired.
 - [x] **TASK-043** `feat: POST /auth/revoke + logout` — session revocation. Tests: token no longer valid.
 
-- [ ] **TASK-044** `feat: MFA TOTP setup/verify/disable/recovery codes` — `/auth/mfa/*`. Tests: TOTP code verify, recovery code single-use, disable requires auth.
+- [x] **TASK-044** `feat: MFA TOTP setup/verify/disable/recovery codes` — `/auth/mfa/*`. Tests: TOTP code verify, recovery code single-use, disable requires auth.
 - [ ] **TASK-045** `feat: session management GET/DELETE /users/me/sessions` — list + revoke any session. Tests: revoke other session, current session flagged.
 - [ ] **TASK-046** `feat: enforce mandatory MFA for admin roles` — block admin JWT issuance until MFA enrolled. Tests: admin login without MFA → setup forced.
 
