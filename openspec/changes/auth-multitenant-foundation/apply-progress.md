@@ -318,3 +318,131 @@ Commands (final green):
 - [ ] TASK-090 cross-tenant isolation suite
 - [ ] TASK-100 frontend auth screens
 - [ ] TASK-110..113 docker, CI, bootstrap CLI, docs
+
+---
+
+## PR-3, work-unit slice A (PR-3a) — Phase 4 auth endpoints: TASK-040..043
+
+**Branch:** `feature/auth-multitenant-foundation-pr3a` (from pr2b, feature-branch-chain).
+
+### Status guard
+
+Same resolved guard as prior slices: the "design.md missing" blocker is a filename mismatch —
+design content lives in `architecture.md`/`api-contract.md`/`data-model.md`/`test-plan.md`, referenced
+explicitly by the orchestrator (§2-§4/§8.2, api-contract §2.1-2.4, data-model §4). No substantive design
+gap. `actionContext` is `repo-local`, single workspace root, no warnings.
+
+### Completed tasks (this slice)
+
+- [x] **TASK-040** — `POST /auth/register`: creates organization (tenant root) + org-admin user +
+  membership + `org_admin` user_role, issues tokens. Tests: happy path, tenant bootstrapped, duplicate
+  409, org-admin forced (no super-admin), 422.
+- [x] **TASK-041** — `POST /auth/login`: Argon2id verify, issues RS256 access + rotating refresh, MFA
+  hook (`mfa_required` when `mfa_enabled`), audit event. Tests: happy path, bad password 401, inactive
+  403, MFA-required, audit written.
+- [x] **TASK-042** — `POST /auth/refresh`: rotation + reuse detection → whole chain revoked (§4.2);
+  grace window. Tests: rotation, reuse → sibling revoked (401), grace window, expiry.
+- [x] **TASK-043** — `POST /auth/revoke` + logout: revokes current refresh token, audit event. Tests:
+  revoke → refresh fails, requires auth, audit written.
+
+`tasks.md` checkboxes updated to `- [x]` for TASK-040..043.
+
+### Key finding: no ORM models existed before this slice
+
+Phase 1 (PR-1) produced only Alembic migrations (raw DDL), **not** SQLAlchemy ORM models (PR-2's
+apply-progress documented "The ORM models are intentionally not created here"). register/login/refresh/
+revoke cannot run without mapped models, so this slice necessarily introduced the models the repos wire
+to — users/organizations/properties/memberships/refresh_tokens/sessions/permissions/roles/
+role_permissions/user_roles/audit_events — plus the DB-backed `DBAuthorizationResolver`. This is a hidden
+prerequisite (~420 lines across 7 model files + resolver) that landed in PR-3a because no earlier slice
+created it.
+
+### Files changed (this slice)
+
+Backend (`apps/backend/`):
+
+- `app/modules/{users,organizations,audit,rbac,auth}/**` — `users/models.py` (User),
+  `organizations/models.py` (Organization, Property, Membership), `auth/models.py` (RefreshToken,
+  Session), `rbac/models.py` (Permission, Role, RolePermission, UserRole), `audit/models.py` (AuditEvent).
+- `app/modules/rbac/resolver.py` — `resolve_auth_context` + `DBAuthorizationResolver` (real DB-backed
+  `AuthorizationResolver`, reuses `resolve_active_membership`/`resolve_permissions`).
+- `app/modules/auth/{schemas,service,router}.py` — request/response models, `AuthService`, the 4 routes.
+- `app/core/exceptions.py` — added `APIError` (status + machine-readable `code`).
+- `app/core/dependencies.py` — `get_db`, `require_auth`, `_resolve_authenticated` (shared by deps).
+- `app/main.py` — `create_app(settings, session_factory)` injectable, wires state + `APIError` handler.
+- `tests/integration/{,auth}/__init__.py`, `tests/integration/auth/{conftest,test_register,test_login,
+  test_refresh,test_revoke}.py`.
+
+Docs:
+
+- `openspec/changes/auth-multitenant-foundation/tasks.md` (checkbox updates)
+- `openspec/changes/auth-multitenant-foundation/apply-progress.md` (this file)
+
+### TDD cycle evidence (strict)
+
+Runner: `cd apps/backend && .venv/bin/python -m pytest` against Docker PostgreSQL
+(`reunionai-test-pg`, `postgresql+asyncpg://reunionai:reunionai@localhost:5433/reunionai`).
+
+Register/login/refresh/revoke share one `AuthService`/router module, so the RED phase concentrated in the
+module scaffolding (TASK-040); later tasks verified GREEN-first, and TASK-042's reuse test caught a real
+bug (genuine RED→GREEN).
+
+| Task | RED | GREEN | Runner |
+| --- | --- | --- | --- |
+| 040 register | `create_app() unexpected kwarg settings/session_factory` + `ModuleNotFoundError` for models | `5 passed` | pytest |
+| 041 login | (endpoint scaffolded in 040 commit) | `5 passed` | pytest |
+| 042 refresh | reuse test failed: sibling `assert 200 == 401` (chain revocation wasn't committed) | `4 passed` after fix | pytest |
+| 043 revoke | (endpoint scaffolded in 040 commit) | `3 passed` | pytest |
+
+Final commands (green):
+
+- `.venv/bin/python -m pytest -q` → `60 passed` (43 prior + 5 register + 5 login + 4 refresh + 3 revoke)
+- `.venv/bin/ruff check app/ tests/ alembic/` → `All checks passed!`
+- `.venv/bin/ruff format --check app/ tests/ alembic/` → `45 files already formatted`
+- `.venv/bin/mypy app tests alembic` → `Success: no issues found in 45 source files`
+
+### Deviations from design
+
+1. **Refresh token `token_hash` = SHA-256, not Argon2id.** architecture §4.2 labels the stored digest
+   "Argon2id", but a salted, non-deterministic Argon2id hash cannot serve as a lookup key on
+   `ux_refresh_tokens_token_hash` (unique). A SHA-256 digest of a 256-bit opaque token is the correct
+   lookup-able form (the token is high-entropy, unlike a password). Documented in `auth/models.py`.
+2. **Revoke uses `require_auth()` (self-service), not `require_permission("auth.revoke")`.** The
+   `auth.revoke` permission is absent from every base role matrix (including `org_admin`), so gating on
+   it would make logout impossible for all registered users. Logout is inherently self-scoped (only the
+   caller's own cookie token is revocable) — authentication is sufficient.
+3. **ORM models omit `server_default`** (use Python-side `default=` only). Alembic owns the DDL;
+   hand-written migrations already carry the `server_default`s. Python defaults keep ids/timestamps
+   available without a refresh round-trip.
+4. **`audit_events.metadata` mapped to `metadata_json`** — the column name `metadata` collides with
+   `DeclarativeBase.metadata`.
+5. **Refresh per-user rate limit deferred** — refresh rate-limiting is IP-only in this slice (the per-user
+   key requires decoding the refresh token first); login/register use IP + user limits per §7.1.
+6. **Refresh grace-window semantics**: within `REFRESH_GRACE_SECONDS` of a rotation, a replay is treated
+   as a legitimate concurrent refresh and the live leaf is rotated (not revoked); outside the window the
+   chain is revoked and 401 `REFRESH_TOKEN_REUSE_DETECTED` returned.
+
+### Workload / PR boundary
+
+- **Actual changed lines: 1,552 insertions / 22 deletions (~1,574 lines)** — **~3.9× the 400-line budget.**
+- **Why it cannot split cleanly:** the ORM models + resolver (~420 lines) are a hard prerequisite for any
+  auth endpoint and belong to no earlier committed slice (Phase 1 shipped migrations only). The four
+  endpoints share one `AuthService` (340 lines) + router and are the orchestrator's explicit PR-3a unit.
+  No cohesive sub-split brings the slice under 400 lines without leaving register/login/refresh/revoke
+  half-broken.
+- **No `size:exception` inferred** (requires explicit maintainer acceptance). This is reported, not
+  claimed. Per-task commits are already discrete (34d4f6c register, 5dc8e1c login, e686101 refresh,
+  e2f774e revoke, af6f2c8 style) — each ≤ ~460 lines if a strict split is required elsewhere.
+
+### Remaining tasks (next slices — NOT in this attempt)
+
+- [ ] TASK-044 MFA TOTP setup/verify/disable/recovery codes (`/auth/mfa/*`)
+- [ ] TASK-045 session management GET/DELETE `/users/me/sessions`
+- [ ] TASK-046 mandatory MFA for admin roles
+- [ ] TASK-050 users CRUD + profile + password change
+- [ ] TASK-060 organizations + properties CRUD
+- [ ] TASK-070 permission registry + base role seeding (CRUD layer; seed data already in migration 003)
+- [ ] TASK-080 audit service + admin query endpoint
+- [ ] TASK-090 cross-tenant isolation suite
+- [ ] TASK-100 frontend auth screens
+- [ ] TASK-110..113 docker, CI, bootstrap CLI, docs
