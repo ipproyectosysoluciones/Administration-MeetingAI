@@ -902,3 +902,85 @@ Commands (final green):
 - [ ] TASK-090 cross-tenant isolation suite
 - [ ] TASK-100 frontend auth screens
 - [ ] TASK-110..113 docker, CI, bootstrap CLI, docs
+
+---
+
+## Slice record — PR-4c (TASK-070, RBAC module)
+
+**Branch:** `feature/auth-multitenant-foundation-pr4-rbac`
+**This attempt:** PR-4c — Phase 7 RBAC module, delivered as two cohesive sub-slices
+(pre-authorized natural split from the parent prompt: registry+roles vs assignments).
+
+### Completed tasks (this slice)
+
+- [x] **TASK-070** — `feat: permission registry + base role seeding` — permission registry,
+  base/custom roles listing + CRUD, role↔permission and user↔role assignments.
+
+`tasks.md` checkbox flipped to `- [x]` for TASK-070.
+
+### Files changed (this slice)
+
+Backend (`apps/backend/`):
+
+- `app/modules/rbac/schemas.py` (new, 73 L) — Pydantic request/response models (api-contract §5).
+- `app/modules/rbac/roles_service.py` (new, 236 L) — registry list, role list, custom role CRUD;
+  shared helpers (`get_visible_role`, `require_custom_role`, `require_permissions`, `record_audit`).
+- `app/modules/rbac/roles_router.py` (new, 92 L) — `GET /rbac/permissions`, `GET/POST/PATCH/DELETE /rbac/roles`.
+- `app/modules/rbac/assignments_service.py` (new, 179 L) — role↔permission + user↔role
+  assign/revoke, `LAST_ADMIN_PROTECTED` guard.
+- `app/modules/rbac/assignments_router.py` (new, 118 L) — api-contract §5.6–5.9 routes.
+- `app/main.py` (+3) — wires the two rbac routers.
+- Tests: `tests/integration/rbac/` (conftest + `test_registry.py`, `test_roles_crud.py`,
+  `test_assignments.py`; 24 integration tests) — tests ride along, not counted in budget (maintainer policy).
+
+### TDD cycle evidence (strict TDD active)
+
+| Cycle | Unit | RED | GREEN | TRIANGULATE | REFACTOR |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Registry (list + MFA name + 401/403 + seed idempotency) | 6 tests failed (404, router absent) | registry routes + service → tests pass | base roles listed w/ permissions; exact 34-permission seed set asserted | extracted `role_view` helper |
+| 2 | Custom role CRUD + immutability + cross-tenant 404 | 9 tests failed | role CRUD routes/service → pass | reserved name 403, duplicate 409, unknown perm 404, system-role PATCH/DELETE 403, cross-tenant PATCH/DELETE 404 | `require_custom_role` shared helper |
+| 3 | Assignments (role↔perm, user↔role) + resolution union | 9 tests failed | assignment routes/service → pass | duplicate assign 409; double-revoke 404 (`ROLE_PERMISSION_NOT_FOUND`, `USER_ROLE_NOT_FOUND`); union verified via `GET /users/me`; LAST_ADMIN_PROTECTED 403 | split `roles_service`/`assignments_service`, `roles_router`/`assignments_router` |
+
+Commands:
+
+- Scoped loop: `.venv/bin/python -m pytest tests/integration/rbac -x -q` (RED: 24 failed; GREEN intermediate: 34→24 fix).
+- Final scoped: `pytest tests/integration/rbac -q` → **24 passed**.
+- Full suite: `.venv/bin/python -m pytest -q` → **152 passed**.
+- `ruff check .` → clean; `ruff format --check` clean; `mypy app` → no issues (36 files).
+
+### Deviations / decisions
+
+1. **`auth.mfa.manage` wins over `user.mfa.manage`.** The api-contract.md, data-model.md, and
+   migration `0003_rbac` seed all use `auth.mfa.manage`; proposal/specs/architecture still say
+   `user.mfa.manage`. Contract name wins (parent directive): the registry exposes only
+   `auth.mfa.manage` and a regression test asserts `user.mfa.manage` is absent. Documented in
+   `roles_service.py` module docstring; the drifted docs are left for the sync phase.
+   (Prior slice already noted this drift in apply-progress.)
+2. **Cross-tenant 404 (not 403)** for role/assignment access, matching the api-contract §1
+   convention and avoiding existence leaks.
+3. **User↔role assignment updates `memberships.role`** (denormalized display role) so
+   users-module views stay coherent; permissions continue to resolve from `user_roles` (union).
+4. **`GET /rbac/permissions` and `GET /rbac/roles` are unpaginated** (full list + `total`); the
+   registry is ~34 entries and roles are few — pagination deferred (contract deviation, harmless
+   at this scale, flagged for review).
+5. **Assign-permission is idempotent** (re-assign returns 200 with current role) rather than a
+   409, since the contract defines no conflict code for it; revoke-missing correctly 404s.
+
+### Workload / PR boundary
+
+- Production code this slice (tests excluded per maintainer policy):
+  - **Slice 4c-i (registry + custom roles):** schemas (shared part ~45) + `roles_service.py` (236)
+    - `roles_router.py` (92) + `main.py` (+2) ≈ **375 lines** ✓ within budget.
+  - **Slice 4c-ii (assignments):** schemas (~28) + `assignments_service.py` (179)
+    - `assignments_router.py` (118) + `main.py` (+1) ≈ **326 lines** ✓ within budget.
+- Initial monolithic attempt measured 636 production lines → exceeded budget → restructured into
+  the two-file split above (no code compression; responsibility-based split only).
+- Commits: first commit = slice 4c-i files (+registry/CRUD tests), second commit = slice 4c-ii
+  files (+assignment tests), Conventional Commits, no push/PR (parent orchestrates).
+
+### Remaining tasks (next slices — NOT in this attempt)
+
+- [ ] TASK-080 audit service + admin query endpoint
+- [ ] TASK-090 cross-tenant isolation suite
+- [ ] TASK-100 frontend auth screens
+- [ ] TASK-110..113 docker, CI, bootstrap CLI, docs

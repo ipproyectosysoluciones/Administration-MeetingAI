@@ -56,7 +56,7 @@ Sources: `proposal.md`, `specs/**/spec.md`, `architecture.md`, `data-model.md`, 
 
 ## Phase 7 — RBAC Module
 
-- [ ] **TASK-070** `feat: permission registry + base role seeding` — 10 base roles, per-org custom roles, matrices per data-model §4. Tests: seeding idempotent, custom role CRUD, immutable base roles.
+- [x] **TASK-070** `feat: permission registry + base role seeding` — 10 base roles, per-org custom roles, matrices per data-model §4. Tests: seeding idempotent, custom role CRUD, immutable base roles.
 
 ## Phase 8 — Audit Module
 
