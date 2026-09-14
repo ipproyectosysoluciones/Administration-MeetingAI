@@ -14,6 +14,7 @@ from app.core.security import JWTService, PasswordHasher
 from app.modules.auth.router import router as auth_router
 from app.modules.organizations.router import router as organizations_router
 from app.modules.rbac.resolver import DBAuthorizationResolver
+from app.modules.rbac.roles_router import router as rbac_roles_router
 from app.modules.users.router import router as users_router
 
 
@@ -47,6 +48,7 @@ def create_app(
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(users_router, prefix="/api/v1")
     app.include_router(organizations_router, prefix="/api/v1")
+    app.include_router(rbac_roles_router, prefix="/api/v1")
 
     @app.exception_handler(APIError)
     async def _api_error_handler(request: Request, exc: APIError) -> JSONResponse:
