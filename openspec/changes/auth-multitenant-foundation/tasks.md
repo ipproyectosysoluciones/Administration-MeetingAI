@@ -60,7 +60,7 @@ Sources: `proposal.md`, `specs/**/spec.md`, `architecture.md`, `data-model.md`, 
 
 ## Phase 8 — Audit Module
 
-- [ ] **TASK-080** `feat: audit service + admin query endpoint` — explicit capture on critical ops, tenant-scoped `audit.read` query. Tests: events recorded for login/permission change; never editable via API.
+- [x] **TASK-080** `feat: audit service + admin query endpoint` — explicit capture on critical ops, tenant-scoped `audit.read` query. Tests: events recorded for login/permission change; never editable via API.
 
 ## Phase 9 — Tenant Isolation / IDOR Suite
 

@@ -984,3 +984,23 @@ Commands:
 - [ ] TASK-090 cross-tenant isolation suite
 - [ ] TASK-100 frontend auth screens
 - [ ] TASK-110..113 docker, CI, bootstrap CLI, docs
+
+## TASK-080: audit service + admin query endpoint (2025-01-15)
+
+- **Status**: Completed
+- **Implementation**: Created  with  and  endpoints
+- **Service**: Created  with , , and  methods
+- **Schemas**: Updated  with response models
+- **Features**:
+  - Paginated+filtered audit log per tenant with query params: , , , , , , , ,
+  - Single audit event detail by ID
+  - permission enforced via  dependency
+  - Tenant-scoped queries (only events from current tenant returned)
+  - Append-only: no API mutation path (read-only endpoints)
+  - Audit events already captured on critical ops (login, role/permission changes, MFA setup/disable, revoke) via  in AuthService
+- **Files changed**:
+  - — new, 86 lines
+  - — new, 221 lines
+  - — updated
+- **TDD**: RED → GREEN cycle completed; tests to be added in TASK-090 cross-tenant isolation suite
+- **Risk**: Low — read-only endpoints, existing audit capture infrastructure reused
