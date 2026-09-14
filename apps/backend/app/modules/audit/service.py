@@ -12,7 +12,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.modules.audit.models import AuditEvent
 
@@ -128,31 +128,16 @@ class AuditService:
         if ip is not None:
             stmt = stmt.where(AuditEvent.ip == ip)
 
-        # Count total before pagination
-        count_stmt = select(AuditEvent).where(AuditEvent.tenant_id == tenant_id)
-        if action is not None:
-            count_stmt = count_stmt.where(AuditEvent.action == action)
-        if resource is not None:
-            count_stmt = count_stmt.where(AuditEvent.resource == resource)
-        if resource_id is not None:
-            count_stmt = count_stmt.where(AuditEvent.resource_id == resource_id)
-        if actor_user_id is not None:
-            count_stmt = count_stmt.where(AuditEvent.actor_user_id == actor_user_id)
-        if date_from is not None:
-            count_stmt = count_stmt.where(AuditEvent.timestamp >= date_from)
-        if date_to is not None:
-            count_stmt = count_stmt.where(AuditEvent.timestamp <= date_to)
-        if ip is not None:
-            count_stmt = count_stmt.where(AuditEvent.ip == ip)
+        count_stmt = select(func.count()).select_from(stmt.subquery())
 
         # Apply ordering and pagination
         stmt = stmt.order_by(AuditEvent.timestamp.desc())
         stmt = stmt.offset((page - 1) * page_size).limit(page_size)
 
         rows = (await session.execute(stmt)).scalars().all()
-        total = (await session.execute(count_stmt)).scalar_one()
+        total: int = (await session.execute(count_stmt)).scalar_one()
 
-        pages: int = (total + page_size - 1) // page_size if total else 1
+        pages: int = -(-total // page_size)  # ceil division, 0 when total == 0
 
         items = [
             {
@@ -171,14 +156,13 @@ class AuditService:
             for row in rows
         ]
 
-        result: dict[str, Any] = {
+        return {
             "items": items,
             "total": total,
             "page": page,
             "page_size": page_size,
+            "pages": pages,
         }
-        result["pages"] = pages
-        return result
 
     # -- get single event -----------------------------------------------------
 
