@@ -1,4 +1,4 @@
-"""Users service: self-service profile and password change (TASK-050, part 1 of 2).
+"""Users service: self profile, password change, tenant-scoped admin CRUD (TASK-050).
 
 Tenant scoping is enforced by filtering every query on the user's membership in the
 caller's organization — the tenant id always comes from the resolved ``AuthContext``,
@@ -11,7 +11,8 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import func, or_, select, update
+from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import APIError
@@ -22,12 +23,28 @@ from app.modules.organizations.models import Membership, Organization
 from app.modules.users.models import User
 from app.modules.users.schemas import (
     ActiveMembership,
+    UserAdminUpdateRequest,
     UserMeResponse,
+    UserView,
 )
 
 _MIN_PASSWORD_LENGTH = 8
 
 
+UserRow = Row[tuple[User, str]]
+
+
+def _to_view(user: User, role: str) -> UserView:
+    return UserView(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        avatar_url=user.avatar_url,
+        is_active=user.is_active,
+        mfa_enabled=user.mfa_enabled,
+        created_at=user.created_at,
+        role=role,
+    )
 
 
 class UserService:
@@ -117,7 +134,104 @@ class UserService:
         )
         await session.commit()
 
+    # -- tenant-scoped admin CRUD --------------------------------------------
+
+    async def list_users(
+        self,
+        session: AsyncSession,
+        tenant_id: uuid.UUID,
+        page: int,
+        page_size: int,
+        search: str | None,
+        is_active: bool | None,
+        role: str | None,
+    ) -> tuple[list[UserView], int]:
+        stmt = (
+            select(User, Membership.role)
+            .join(Membership, Membership.user_id == User.id)
+            .where(Membership.organization_id == tenant_id)
+            .where(Membership.deleted_at.is_(None))
+            .where(User.deleted_at.is_(None))
+        )
+        if search:
+            pattern = f"%{search.strip()}%"
+            stmt = stmt.where(
+                or_(User.email.ilike(pattern), func.coalesce(User.full_name, "").ilike(pattern))
+            )
+        if is_active is not None:
+            stmt = stmt.where(User.is_active == is_active)
+        if role:
+            stmt = stmt.where(Membership.role == role)
+
+        rows = (await session.execute(stmt.order_by(User.created_at.desc()))).all()
+        total = len(rows)
+        start = (page - 1) * page_size
+        page_rows = rows[start : start + page_size]
+        return [self._row_to_view(row) for row in page_rows], total
+
+    async def get_user(
+        self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID
+    ) -> UserView:
+        row = await self._user_in_tenant(session, tenant_id, user_id)
+        if row is None:
+            raise APIError(404, "USER_NOT_FOUND", "User not found in tenant")
+        return self._row_to_view(row)
+
+    async def update_user(
+        self,
+        session: AsyncSession,
+        tenant_id: uuid.UUID,
+        actor: uuid.UUID,
+        user_id: uuid.UUID,
+        payload: UserAdminUpdateRequest,
+        ip: str | None,
+        user_agent: str | None,
+    ) -> UserView:
+        row = await self._user_in_tenant(session, tenant_id, user_id)
+        if row is None:
+            raise APIError(404, "USER_NOT_FOUND", "User not found in tenant")
+        target, role = row[0], row[1]
+        if target.is_super_admin:
+            raise APIError(403, "SUPER_ADMIN_IMMUTABLE", "Super-admin cannot be modified")
+        fields = payload.model_fields_set
+        if "full_name" in fields:
+            target.full_name = payload.full_name
+        if "is_active" in fields:
+            target.is_active = payload.is_active
+        self._record_audit(
+            session, actor, tenant_id, "user.update", "user", target.id, ip, user_agent
+        )
+        await session.commit()
+        return _to_view(target, role)
+
+    async def soft_delete_user(
+        self,
+        session: AsyncSession,
+        tenant_id: uuid.UUID,
+        actor: uuid.UUID,
+        user_id: uuid.UUID,
+        ip: str | None,
+        user_agent: str | None,
+    ) -> datetime:
+        row = await self._user_in_tenant(session, tenant_id, user_id)
+        if row is None:
+            raise APIError(404, "USER_NOT_FOUND", "User not found in tenant")
+        target = row[0]
+        if target.id == actor or target.is_super_admin:
+            raise APIError(403, "DELETE_NOT_ALLOWED", "Cannot delete self or super-admin")
+        deleted_at = datetime.now(UTC)
+        target.deleted_at = deleted_at
+        self._record_audit(
+            session, actor, tenant_id, "user.delete", "user", target.id, ip, user_agent
+        )
+        await session.commit()
+        return deleted_at
+
     # -- helpers --------------------------------------------------------------
+
+    def _row_to_view(self, row: UserRow) -> UserView:
+        user, role = row[0], row[1]
+        return _to_view(user, role)
 
     async def _active_membership(
         self, session: AsyncSession, user_id: uuid.UUID, tenant_id: uuid.UUID
@@ -135,6 +249,20 @@ class UserService:
             .scalars()
             .first()
         )
+
+    async def _user_in_tenant(
+        self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID
+    ) -> UserRow | None:
+        return (
+            await session.execute(
+                select(User, Membership.role)
+                .join(Membership, Membership.user_id == User.id)
+                .where(Membership.organization_id == tenant_id)
+                .where(Membership.deleted_at.is_(None))
+                .where(User.deleted_at.is_(None))
+                .where(User.id == user_id)
+            )
+        ).first()
 
     async def _revoke_all_sessions(self, session: AsyncSession, user_id: uuid.UUID) -> None:
         await session.execute(

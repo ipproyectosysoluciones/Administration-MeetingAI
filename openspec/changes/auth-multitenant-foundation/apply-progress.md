@@ -677,3 +677,115 @@ Commands (final green):
 - [ ] TASK-090 cross-tenant isolation suite
 - [ ] TASK-100 frontend auth screens
 - [ ] TASK-110..113 docker, CI, bootstrap CLI, docs
+
+---
+
+## PR-4, work-unit slice A (PR-4a) — Phase 5 users module: TASK-050
+
+**Branch:** `feature/auth-multitenant-foundation-pr4-users` (from pr3c, feature-branch-chain).
+
+### Status guard
+
+Same resolved guard as prior slices: the "design.md missing" blocker is a filename
+mismatch — design content lives in `architecture.md` §3/§5, `api-contract.md` §3, and
+`specs/users/spec.md` (referenced explicitly by the orchestrator). No substantive design
+gap. `actionContext` is `repo-local`, single workspace root, no warnings.
+
+### Review workload gate
+
+`tasks.md` forecast already resolved to chained PRs (feature-branch-chain). PR-4a is the
+parent-assigned work-unit slice for exactly TASK-050. Delivery path is `auto-chain`
+(slice boundary provided by the parent), so no `size:exception` decision is required of
+me — the overage is reported below, not inferred.
+
+### Completed tasks (this slice)
+
+- [x] **TASK-050** — users module: tenant-scoped list/get/update (admin) + soft delete,
+  self-service profile (`GET`/`PATCH /users/me`) + password change (audit + session
+  invalidation). Permission gates: `user.read`/`user.update`/`user.delete` on admin CRUD;
+  self-service paths via `require_auth`.
+
+`tasks.md` checkbox updated to `- [x]` for TASK-050 (21 → 22 of 31 complete).
+
+### Files changed (this slice)
+
+Backend (`apps/backend/`):
+
+- `app/modules/users/schemas.py` — `ActiveMembership`, `UserMeResponse`, `UserUpdateMeRequest`,
+  `PasswordChangeRequest`, `UserView`, `UserListResponse`, `UserAdminUpdateRequest`,
+  `UserDeleteResponse`.
+- `app/modules/users/service.py` — `UserService` (get_me, update_me, change_password,
+  list_users, get_user, update_user, soft_delete_user + `_user_in_tenant`/`_revoke_all_sessions`).
+- `app/modules/users/router.py` — `GET/PATCH /users/me`, `POST /users/me/password`,
+  `GET/POST-pagination /users`, `GET/PATCH/DELETE /users/{user_id}`.
+- `app/main.py` — include `users_router` (import + 1 include line).
+- `tests/integration/users/__init__.py`, `conftest.py` (fixtures + `register`/`create_member`),
+  `test_profile.py` (5), `test_password.py` (5), `test_admin_crud.py` (11).
+
+Docs (apply artifacts):
+
+- `openspec/changes/auth-multitenant-foundation/tasks.md` (TASK-050 checkbox)
+- `openspec/changes/auth-multitenant-foundation/apply-progress.md` (this file)
+
+### TDD cycle evidence (strict)
+
+Runner: `cd apps/backend && .venv/bin/python -m pytest` against Docker PostgreSQL
+(`reunionai-test-pg`, `postgresql+asyncpg://reunionai:reunionai@localhost:5433/reunionai`).
+
+| Phase | Evidence | Result |
+| --- | --- | --- |
+| RED | 21 tests written first; all failed (`/users/*` routes absent → 404/401 vs expected 200/403) | `21 failed` |
+| GREEN | schemas + service + router + `main.py` wiring | `21 passed` |
+| TRIANGULATE | restricted-field (email/role), wrong-password 400, weak-password 422, session-revocation, super-admin/self delete-403, soft-deleted-can't-login cases | `21 passed` |
+| REFACTOR | `ruff format` (7 files) + `ruff check` + `mypy` | all clean |
+
+Commands (final green):
+
+- `.venv/bin/python -m pytest -q` → `98 passed` (77 prior + 21 users)
+- `.venv/bin/ruff check app/ tests/` → `All checks passed!`
+- `.venv/bin/ruff format --check app/ tests/` → `51 files already formatted`
+- `.venv/bin/mypy app tests alembic` → `Success: no issues found in 56 source files`
+
+### Deviations from design
+
+1. **`design.md` naming** — same resolved mismatch as prior slices (content in
+   architecture/api-contract/specs).
+2. **Self-service paths gate on `require_auth`, not `user.update`/`user.password.change`.**
+   Those permissions are only granted to `org_admin` (data-model §4.2) — a resident could
+   never change their own password or update their own name if self-service were gated on
+   them. Sibling precedent: PR-3a `auth.revoke`, PR-3b MFA, PR-3c sessions. The admin CRUD
+   endpoints still gate on `user.read`/`user.update`/`user.delete` per the role matrix.
+3. **`FIELD_NOT_ALLOWED` (self PATCH) enforced by inspecting the raw JSON body**, not a
+   Pydantic `extra="forbid"` (which would yield 422). The router reads `await request.json()`,
+   rejects keys in `RESTRICTED_SELF_FIELDS` (email/role/tenant/…), and forwards only
+   `full_name`/`avatar_url`.
+4. **`response_model=None` on `GET/PATCH /users/{id}`** to avoid double-serialization — the
+   service returns a `UserView` directly (typed `object` at the route boundary); mypy-clean.
+5. **Weak-password policy** (min length 8) introduced only for self-service password change
+   (`WEAK_PASSWORD` 422), not yet on register (register shipped in PR-3a with no length rule).
+6. **Session invalidation = revoke all active refresh tokens** (bulk `UPDATE … SET revoked_at`),
+   including the caller's own; the in-flight access token remains valid for its ≤15-min TTL
+   (standard JWT behavior, no blocklist yet).
+
+### Workload / PR boundary
+
+- **Actual changed lines: ~1,052** (source ~539 + tests ~513, plus `main.py` +2). **~2.6× the
+  400-line budget.**
+- **Honesty check:** no padding; every endpoint + protection is spec-required and strict TDD
+  added 21 tests. TASK-050 is the parent-assigned atomic unit — the users module cannot land
+  partially (schemas/service/router + tests form one cohesive slice).
+- **Natural sub-split if budget is enforced strictly:** (a) self-service (get_me/update_me/
+  change_password + `test_profile`/`test_password`, ~330 lines) vs (b) admin CRUD (list/get/
+  update/delete + `test_admin_crud`/conftest, ~370 lines). Neither leaves the other broken;
+  reported, not claimed.
+- **No `size:exception` claimed** (requires explicit maintainer acceptance) — reported, not
+  inferred.
+
+### Remaining tasks (next slices — NOT in this attempt)
+
+- [ ] TASK-060 organizations + properties CRUD
+- [ ] TASK-070 permission registry + base role seeding
+- [ ] TASK-080 audit service + admin query endpoint
+- [ ] TASK-090 cross-tenant isolation suite
+- [ ] TASK-100 frontend auth screens
+- [ ] TASK-110..113 docker, CI, bootstrap CLI, docs

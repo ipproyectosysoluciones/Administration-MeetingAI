@@ -48,7 +48,7 @@ Sources: `proposal.md`, `specs/**/spec.md`, `architecture.md`, `data-model.md`, 
 
 ## Phase 5 — Users Module
 
-- [ ] **TASK-050** `feat: users CRUD + profile + password change` — tenant-scoped list/get/update, soft delete, password change with audit. Tests: self-service profile, admin user management, password change invalidates sessions.
+- [x] **TASK-050** `feat: users CRUD + profile + password change` — tenant-scoped list/get/update, soft delete, password change with audit. Tests: self-service profile, admin user management, password change invalidates sessions.
 
 ## Phase 6 — Organizations Module
 
