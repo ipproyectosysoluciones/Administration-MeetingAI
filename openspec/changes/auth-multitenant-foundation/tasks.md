@@ -52,7 +52,7 @@ Sources: `proposal.md`, `specs/**/spec.md`, `architecture.md`, `data-model.md`, 
 
 ## Phase 6 — Organizations Module
 
-- [ ] **TASK-060** `feat: organizations + properties CRUD` — soft-delete cascade, optional property membership. Tests: org isolation, property hierarchy, membership with/without property.
+- [x] **TASK-060** `feat: organizations + properties CRUD` — soft-delete cascade, optional property membership. Tests: org isolation, property hierarchy, membership with/without property.
 
 ## Phase 7 — RBAC Module
 

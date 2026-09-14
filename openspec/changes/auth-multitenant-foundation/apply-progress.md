@@ -789,3 +789,116 @@ Commands (final green):
 - [ ] TASK-090 cross-tenant isolation suite
 - [ ] TASK-100 frontend auth screens
 - [ ] TASK-110..113 docker, CI, bootstrap CLI, docs
+
+---
+
+## PR-4, work-unit slice B (PR-4b) — Phase 6 organizations module: TASK-060
+
+**Branch:** `feature/auth-multitenant-foundation-pr4-orgs` (from pr4-users, feature-branch-chain).
+
+### Status guard
+
+Same resolved guard as prior slices: the "design.md missing" blocker is a filename
+mismatch — design content lives in `architecture.md` §3/§5, `api-contract.md` §4, and
+`specs/organizations/spec.md` (referenced explicitly by the orchestrator). No substantive
+design gap. `actionContext` is `repo-local`, single workspace root, no warnings.
+
+### Review workload gate
+
+`tasks.md` forecast already resolved to chained PRs (feature-branch-chain). PR-4b is the
+parent-assigned work-unit slice for exactly TASK-060. Delivery path `auto-chain` — no
+`size:exception` decision required of me; the natural split (org CRUD vs
+properties+memberships) is taken and reported below.
+
+### Completed task (this slice)
+
+- [x] **TASK-060** — organizations module: platform org create (`POST /organizations`,
+  super-admin) + tenant-scoped read/update (`GET/PATCH /organizations/me`), super-admin
+  org soft-delete with cascade to properties+memberships (`DELETE /organizations/{id}`),
+  property/group CRUD under `/organizations/me/properties` (soft delete clears
+  `memberships.property_id`), and membership add/list/update/remove with nullable
+  `property_id` (Q2) + self/last-admin removal protection.
+
+`tasks.md` checkbox updated to `- [x]` for TASK-060 (22 → 23 of 31 complete).
+
+### Files changed (this slice)
+
+Backend (`apps/backend/`):
+
+- `app/modules/organizations/schemas.py` — org/property/membership request+response models.
+- `app/modules/organizations/service.py` — `OrganizationService` (org create/read/update/
+  soft-delete, property list/create/update/soft-delete, membership list/create/update/
+  soft-delete + tenant-scoped helpers).
+- `app/modules/organizations/router.py` — `POST /organizations`, `GET/PATCH /organizations/me`,
+  `DELETE /organizations/{id}`, property + membership routes under `/organizations/me`.
+- `app/main.py` — include `organizations_router` (import + 1 include line).
+- `tests/integration/organizations/{__init__,conftest}.py`, `test_org_crud.py` (12),
+  `test_property_crud.py` (7), `test_membership_crud.py` (11).
+
+Docs (apply artifacts):
+
+- `openspec/changes/auth-multitenant-foundation/tasks.md` (TASK-060 checkbox)
+- `openspec/changes/auth-multitenant-foundation/apply-progress.md` (this file)
+
+### TDD cycle evidence (strict)
+
+Runner: `cd apps/backend && .venv/bin/python -m pytest` against Docker PostgreSQL
+(`reunionai-test-pg`, port 5433).
+
+| Phase | Evidence | Result |
+| --- | --- | --- |
+| RED | 12 org tests written first (all 404) then 18 property/membership tests (all 404) | `12 failed` → `18 failed` |
+| GREEN | org CRUD (schemas/service/router + main wiring); then properties + memberships | `12 passed`, `18 passed` |
+| TRIANGULATE | slug conflict 409, super-admin-only 403, cross-tenant property/membership 404, optional property null, duplicate membership 409, property delete nulls memberships, self-removal 403 | green |
+| REFACTOR | `ruff format` + `ruff check` + `mypy` across module + tests | all clean |
+
+Commands (final green):
+
+- `.venv/bin/python -m pytest -q` → `128 passed` (98 prior + 30 org/property/membership)
+- `.venv/bin/ruff check app/ tests/` → `All checks passed!`
+- `.venv/bin/ruff format --check app/modules/organizations/ tests/integration/organizations/` → clean
+- `.venv/bin/mypy app/modules/organizations/ tests/integration/organizations/` → `Success: no issues found in 10 source files`
+
+### Deviations from design
+
+1. **`design.md` naming** — same resolved mismatch as prior slices (content in
+   architecture/api-contract/specs).
+2. **Org create/delete are super-admin only** (the matrix in `0003_rbac.py`/data-model §4
+   grants `organization.create`/`organization.delete` to *no* tenant role — not even
+   `org_admin`). Therefore org delete is `DELETE /organizations/{organization_id}` (platform
+   super-admin), **not** a tenant-scoped `/organizations/me` delete. The api-contract §4 has
+   no org-delete endpoint; the spec's "Organization soft delete" requirement is honored on a
+   super-admin path. Gate is `require_auth` + `is_super_admin` (raises `SUPER_ADMIN_REQUIRED`
+   403), mirroring `POST /organizations`.
+3. **Membership `role` is the legacy string column** (`data-model` §2.1 says "role name
+   (legacy, for migration; RBAC uses user_roles)"). Membership CRUD manages only the
+   `memberships` row (tenant link + optional `property_id` + legacy role string); it does
+   **not** create/remove `user_roles` rows — RBAC role→permission assignment is TASK-070's
+   concern. A member added here thus has tenant access with permissions resolved separately.
+4. **Property delete is soft** (sets `deleted_at`) while also nulling `memberships.property_id`
+   per api-contract §4.7 — the two are combined so a deleted property releases its members
+   immediately without a hard delete.
+5. **"Last admin" removal protection** is a count guard (an `org_admin` membership cannot be
+   removed when it is the last active one), but in practice the `self` guard fires first for
+   the registration-built admin; the count guard is a defensive backstop (covered indirectly
+   by the self-removal 403 test).
+
+### Workload / PR boundary
+
+- **Actual changed lines: ~1,648** (source ~820 + tests ~826, plus `main.py` +2). **~4.1× the
+  400-line budget.**
+- **Honesty check:** no padding; every endpoint + protection is spec/api-contract-required and
+  strict TDD added 30 tests. TASK-060 is the parent-assigned atomic unit.
+- **Natural split taken (and committed as two commits):** (a) org CRUD + super-admin soft-delete
+  (`ff66c38`, ~350 lines) vs (b) property + membership CRUD (`7e8b849`, ~1,298 lines). Neither
+  half lands independently within 400 lines; reported, not a `size:exception` claim.
+- **No `size:exception` claimed** (requires explicit maintainer acceptance) — reported, not
+  inferred.
+
+### Remaining tasks (next slices — NOT in this attempt)
+
+- [ ] TASK-070 permission registry + base role seeding
+- [ ] TASK-080 audit service + admin query endpoint
+- [ ] TASK-090 cross-tenant isolation suite
+- [ ] TASK-100 frontend auth screens
+- [ ] TASK-110..113 docker, CI, bootstrap CLI, docs
