@@ -1004,3 +1004,39 @@ Commands:
   - — updated
 - **TDD**: RED → GREEN cycle completed; tests to be added in TASK-090 cross-tenant isolation suite
 - **Risk**: Low — read-only endpoints, existing audit capture infrastructure reused
+
+## TASK-090 — Cross-tenant isolation suite (Phase 9)
+
+- Slice: single (test-only; **0 production lines** — budget respected).
+- New suite: `apps/backend/tests/integration/isolation/` (conftest + 19-assert matrix in
+  `test_isolation_matrix.py`), 18 tests covering orgs, properties, memberships, users,
+  rbac roles/assignments, audit, sessions, and JWT tenant identity.
+- Convention resolution: `DELETE /organizations/{id}` requires super-admin (403
+  SUPER_ADMIN_REQUIRED) — it is flag-protected, not tenant-scoped, so no existence leak;
+  recorded as an intentional exception to the 404 rule.
+- Fix during authoring: `POST /rbac/roles` pattern rule forces `custom_xxxxx` names.
+- Gates: pytest 184/184 green, ruff check + format clean, mypy clean.
+
+### Decisiones y convergencias
+
+1. Tests seed isolation resources directly via session_factory (user creation, audit
+   rows) to avoid admin-only POST routes absent from the contract (no `/users` POST).
+2. `test_login_event_is_visible_via_audit_endpoint` asserts exact login capture via a
+   non-admin member (admin login requires MFA — cannot be used in the happy path).
+3. Everything else is endpoint black-box: token of tenant A + resource id of tenant B →
+   **404** (except the org-delete super-admin exception above).
+
+### Workload / PR boundary
+
+- Production code: **0 lines** (rule compliant).
+- Test code: ~290 lines over 2 files (conftest + matrix), no compression.
+- Commits: `test(isolation): add cross-tenant isolation matrix` (tests only) + docs commit
+  for tasks.md/apply-progress. No push/PR (parent orchestrates).
+
+### Remaining tasks (next slices — NOT in this attempt)
+
+- [ ] TASK-100 frontend auth screens
+- [ ] TASK-110 docker-compose
+- [ ] TASK-111 super-admin bootstrap CLI
+- [ ] TASK-112 CI
+- [ ] TASK-113 docs

@@ -64,7 +64,7 @@ Sources: `proposal.md`, `specs/**/spec.md`, `architecture.md`, `data-model.md`, 
 
 ## Phase 9 — Tenant Isolation / IDOR Suite
 
-- [ ] **TASK-090** `test: cross-tenant isolation suite` — two tenants A/B: every scoped endpoint returns 404 (not 403) for the other tenant's resources; JWT from A cannot read/write B. Tests: full matrix per test-plan.md.
+- [x] **TASK-090** `test: cross-tenant isolation suite` — two tenants A/B: every scoped endpoint returns 404 (not 403) for the other tenant's resources; JWT from A cannot read/write B. Tests: full matrix per test-plan.md.
 
 ## Phase 10 — Frontend Auth Screens
 
