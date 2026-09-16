@@ -1040,3 +1040,17 @@ Commands:
 - [ ] TASK-111 super-admin bootstrap CLI
 - [ ] TASK-112 CI
 - [ ] TASK-113 docs
+
+## TASK-100 — Frontend auth screens (Phase 10)
+
+- New surface: `apps/frontend/src/lib/api.ts` (typed fetch client with APIError envelope),
+  `src/components/auth/{LoginForm,MfaChallengeForm,RegisterForm}.tsx`, pages `/login` +
+  `/register`. MFA challenge is a step inside the login flow (login returns
+  `mfa_required` → challenge form POSTs `/auth/mfa/challenge` with the mfa bearer token).
+- Tests: vitest 17/17 — API client contract (login/register/mfaChallenge, error mapping),
+  form validation (required fields, password ≥12, slug pattern), MFA step transition,
+  server-error display.
+- Implemented inline by the parent session (subagents stalled repeatedly this session);
+  verified independently: vitest + tsc --noEmit clean.
+- Production lines ≈ 420 (3 components + client + 2 pages) — single slice, no compression.
+- Backend untouched.
