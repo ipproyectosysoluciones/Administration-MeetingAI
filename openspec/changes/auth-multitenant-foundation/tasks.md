@@ -68,7 +68,7 @@ Sources: `proposal.md`, `specs/**/spec.md`, `architecture.md`, `data-model.md`, 
 
 ## Phase 10 — Frontend Auth Screens
 
-- [ ] **TASK-100** `feat: login/register/MFA screens wired to /api/v1/auth` — Astro pages + React forms, error states, MFA challenge step. Tests: vitest component tests for forms + API client.
+- [x] **TASK-100** `feat: login/register/MFA screens wired to /api/v1/auth` — Astro pages + React forms, error states, MFA challenge step. Tests: vitest component tests for forms + API client.
 
 ## Phase 11 — Docker, CI & Bootstrap
 
