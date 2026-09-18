@@ -48,8 +48,12 @@ describe("LoginForm", () => {
     vi.mocked(api.login).mockResolvedValue(tokenResult);
     const onSuccess = vi.fn();
     render(<LoginForm onSuccess={onSuccess} />);
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@b.c" } });
-    fireEvent.change(screen.getByLabelText(/contraseña/i), { target: { value: "secreto123" } });
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: "a@b.c" },
+    });
+    fireEvent.change(screen.getByLabelText(/contraseña/i), {
+      target: { value: "secreto123" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /ingresar/i }));
     await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(tokenResult));
   });
@@ -61,10 +65,16 @@ describe("LoginForm", () => {
       message: "MFA",
     });
     render(<LoginForm />);
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@b.c" } });
-    fireEvent.change(screen.getByLabelText(/contraseña/i), { target: { value: "secreto123" } });
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: "a@b.c" },
+    });
+    fireEvent.change(screen.getByLabelText(/contraseña/i), {
+      target: { value: "secreto123" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /ingresar/i }));
-    expect(await screen.findByLabelText(/código de verificación/i)).toBeDefined();
+    expect(
+      await screen.findByLabelText(/código de verificación/i),
+    ).toBeDefined();
   });
 
   it("shows the server error message", async () => {
@@ -72,8 +82,12 @@ describe("LoginForm", () => {
       new api.ApiError(401, "INVALID_CREDENTIALS", "Credenciales inválidas"),
     );
     render(<LoginForm />);
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@b.c" } });
-    fireEvent.change(screen.getByLabelText(/contraseña/i), { target: { value: "secreto123" } });
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: "a@b.c" },
+    });
+    fireEvent.change(screen.getByLabelText(/contraseña/i), {
+      target: { value: "secreto123" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /ingresar/i }));
     const alert = await screen.findByTestId("login-error");
     expect(alert.textContent).toBe("Credenciales inválidas");
