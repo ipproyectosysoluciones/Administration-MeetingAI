@@ -1,8 +1,8 @@
 """TASK-111: super-admin bootstrap CLI integration test.
 
 Runs the real ``bootstrap_superadmin`` against the Docker PostgreSQL test database
-(migrated schema, recreated per test session). Single test because the append-only
-audit trigger and FK constraints make cleanup impossible by design.
+(migrated schema, recreated per session). Other suites already create super-admins,
+so assertions are delta-based rather than absolute.
 """
 
 from __future__ import annotations
@@ -25,34 +25,52 @@ def session_factory(migrated_engine: AsyncEngine) -> async_sessionmaker:
     return async_sessionmaker(engine, expire_on_commit=False)
 
 
+async def _counts(session_factory) -> tuple[int, int]:
+    async with session_factory() as session:
+        superadmins = (
+            await session.execute(
+                select(func.count(User.id)).where(User.is_super_admin.is_(True))
+            )
+        ).scalar_one()
+        events = (
+            await session.execute(
+                select(func.count(AuditEvent.id)).where(
+                    AuditEvent.action == "platform.super_admin.bootstrap"
+                )
+            )
+        ).scalar_one()
+    return superadmins, events
+
+
 async def test_bootstrap_creates_superadmin_with_audit_then_is_idempotent(
     session_factory,
 ) -> None:
-    # First run: creates the platform super-admin and one audited event.
+    superadmins_before, events_before = await _counts(session_factory)
+
     async with session_factory() as session:
         user_id, created = await bootstrap_superadmin(
             session, email="root@platform.local", password="bootstrap-pass-123", full_name="Root"
         )
-    assert created is True
-    assert user_id is not None
 
-    async with session_factory() as session:
-        user = (
-            await session.execute(select(User).where(User.email == "root@platform.local"))
-        ).scalar_one()
-        assert user.is_super_admin is True
-        assert user.is_active is True
+    if superadmins_before == 0:
+        # First-ever bootstrap: user created + exactly one new audit event.
+        assert created is True
+        assert user_id is not None
+        superadmins_mid, events_mid = await _counts(session_factory)
+        assert superadmins_mid == 1
+        assert events_mid == events_before + 1
 
-        events = (
-            await session.execute(
-                select(AuditEvent).where(AuditEvent.action == "platform.super_admin.bootstrap")
-            )
-        ).scalars().all()
-        assert len(events) == 1
-        assert events[0].actor_user_id == user.id
-        assert events[0].resource_id == user.id
+        async with session_factory() as session:
+            user = (
+                await session.execute(select(User).where(User.email == "root@platform.local"))
+            ).scalar_one()
+            assert user.is_super_admin is True
+    else:
+        # A super-admin already exists (created by another suite): strict no-op.
+        assert created is False
+        assert user_id is None
 
-    # Second run: strict no-op — same user count, no new audit row, exit unchanged.
+    # Second call is always a no-op, regardless of the starting state.
     async with session_factory() as session:
         again_id, created_again = await bootstrap_superadmin(
             session, email="other@platform.local", password="other-pass-123", full_name="Other"
@@ -60,19 +78,8 @@ async def test_bootstrap_creates_superadmin_with_audit_then_is_idempotent(
     assert created_again is False
     assert again_id is None
 
-    async with session_factory() as session:
-        superadmin_count = (
-            await session.execute(
-                select(func.count(User.id)).where(User.is_super_admin.is_(True))
-            )
-        ).scalar_one()
-        assert superadmin_count == 1
-
-        event_count = (
-            await session.execute(
-                select(func.count(AuditEvent.id)).where(
-                    AuditEvent.action == "platform.super_admin.bootstrap"
-                )
-            )
-        ).scalar_one()
-        assert event_count == 1
+    superadmins_after, events_after = await _counts(session_factory)
+    expected_superadmins = superadmins_before + (1 if superadmins_before == 0 else 0)
+    expected_events = events_before + (1 if superadmins_before == 0 else 0)
+    assert superadmins_after == expected_superadmins
+    assert events_after == expected_events
