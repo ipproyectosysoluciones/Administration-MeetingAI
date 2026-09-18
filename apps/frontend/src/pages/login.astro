@@ -1,0 +1,22 @@
+---
+import { LoginForm } from "../components/auth/LoginForm";
+---
+
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>ReunionAI — Ingresar</title>
+  </head>
+  <body>
+    <main>
+      <h1>Ingresar</h1>
+      <LoginForm
+        client:load
+        onSuccess={() => {
+          window.location.href = "/dashboard";
+        }}
+      />
+      <p>¿No tenés cuenta? <a href="/register">Registrate</a></p>
+    </main>
+  </body>
+</html>

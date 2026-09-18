@@ -224,3 +224,13 @@ __marimo__/
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# Agent harness (local, machine-specific)
+.pi/
+.agents/
+.windsurf/
+openspec/config.yaml
+
+# Frontend source library must not be shadowed by the Python artifact pattern.
+!apps/frontend/src/lib/
+!apps/frontend/src/lib/**

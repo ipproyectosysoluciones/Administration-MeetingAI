@@ -1040,3 +1040,57 @@ Commands:
 - [ ] TASK-111 super-admin bootstrap CLI
 - [ ] TASK-112 CI
 - [ ] TASK-113 docs
+
+## TASK-100 — Frontend auth screens (Phase 10)
+
+- New surface: `apps/frontend/src/lib/api.ts` (typed fetch client with APIError envelope),
+  `src/components/auth/{LoginForm,MfaChallengeForm,RegisterForm}.tsx`, pages `/login` +
+  `/register`. MFA challenge is a step inside the login flow (login returns
+  `mfa_required` → challenge form POSTs `/auth/mfa/challenge` with the mfa bearer token).
+- Tests: vitest 17/17 — API client contract (login/register/mfaChallenge, error mapping),
+  form validation (required fields, password ≥12, slug pattern), MFA step transition,
+  server-error display.
+- Implemented inline by the parent session (subagents stalled repeatedly this session);
+  verified independently: vitest + tsc --noEmit clean.
+- Production lines ≈ 420 (3 components + client + 2 pages) — single slice, no compression.
+- Backend untouched.
+
+## TASK-110 — Docker compose stack (Phase 11)
+
+- New: root `docker-compose.yml` (postgres + backend + frontend-nginx), `docker-compose.prod.yml`,
+  `apps/backend/Dockerfile` (alembic upgrade + uvicorn), `apps/frontend/Dockerfile`
+  (node build → nginx, serves static + proxies /api), `infra/nginx/nginx.conf`.
+- Fixes during smoke: setuptools packages=[\"app\"] in backend pyproject (flat-layout build failure);
+  alembic promoted from dev extras to runtime deps; pnpm v10 requires
+  `dangerously-allow-all-builds`; default port moved 8080→8081 (dozzle port clash on the host).
+- Smoke (`docker compose up -d --build`): postgres healthy, backend healthy (migrations applied),
+  frontend serves `/` and `/login` (200), `/api/v1/auth/login` reachable through the nginx
+  proxy with correct JSON error envelope. Stack torn down after smoke (`docker compose down`).
+- Redis/worker omitted deliberately: no consumer exists yet (AGENTS.md §10 — only when justified).
+
+## TASK-111 — Super-admin bootstrap CLI (Phase 11)
+
+- New: `app/cli.py` with `bootstrap-superadmin` — creates the platform org + first
+  `is_super_admin` user + audited event (`platform.super_admin.bootstrap`). Idempotent:
+  when a super-admin exists it is a strict no-op (no row, no event).
+- Test: single integration test covering create → audit → idempotent re-run
+  (append-only trigger + FK make multi-test cleanup impossible by design).
+- Usage in compose: `docker compose exec backend python -m app.cli bootstrap-superadmin ...`.
+- Gates: pytest +1 (185 total), ruff/mypy clean.
+
+## TASK-112 — GitHub Actions CI (Phase 11)
+
+- New: `.github/workflows/ci.yml` — two jobs:
+  - **backend**: python 3.12, postgres:16 service on :5433, `ruff check`, `ruff format --check`,
+    `mypy app`, full `pytest -q` against the service DB.
+  - **frontend**: node 20 + pnpm, `tsc --noEmit`, `vitest run`, `astro build`.
+- Triggers: push to main/develop/feature/* and PRs.
+- Validated as YAML locally; the pipeline itself goes green on the first push (TASK-113
+  documents the commands it runs).
+
+## TASK-113 — Docs (Phase 11)
+
+- README: real quickstart (compose one-liner, no-Docker dev loop, test DB container,
+  bootstrap CLI, CI pointer) in both ES and EN sections.
+- New: `docs/architecture/auth-multitenant-foundation.md` — module surface, security
+  invariants, infra, deferred scope.

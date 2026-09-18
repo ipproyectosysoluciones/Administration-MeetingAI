@@ -116,9 +116,36 @@ Correctness > Security > Tenant Isolation > Traceability > Testability
 Entorno local:
 
 ```bash
-cp .env.example .env   # configurar variables
-docker compose up -d   # frontend, backend, postgres, redis, worker, nginx
+cp .env.example .env          # configurar variables (JWT keys, DB, rate limits)
+docker compose up -d          # frontend (:8081), backend, postgres, nginx
 ```
+
+Desarrollo sin Docker:
+
+```bash
+# Backend (Python 3.11+)
+cd apps/backend
+python -m venv .venv && .venv/bin/pip install -e '.[dev]'
+# DB de tests (una vez):
+docker run -d --name reunionai-test-pg -e POSTGRES_USER=reunionai \
+  -e POSTGRES_PASSWORD=reunionai -e POSTGRES_DB=reunionai -p 5433:5432 postgres:16-alpine
+.venv/bin/ruff check . && .venv/bin/mypy app && .venv/bin/pytest
+
+# Frontend (pnpm)
+cd apps/frontend
+pnpm install && pnpm vitest run && pnpm dev
+```
+
+Bootstrap del primer super-admin de plataforma:
+
+```bash
+cd apps/backend
+.venv/bin/python -m app.cli bootstrap-superadmin \
+  --email admin@ejemplo.com --password <secreto> --full-name "Admin"
+# o dentro de Docker: docker compose exec backend python -m app.cli bootstrap-superadmin ...
+```
+
+CI: `.github/workflows/ci.yml` corre lint + typecheck + tests + build en cada push/PR.
 
 ---
 
@@ -174,9 +201,34 @@ Correctness > Security > Tenant Isolation > Traceability > Testability
 Local environment:
 
 ```bash
-cp .env.example .env   # configure variables
-docker compose up -d   # frontend, backend, postgres, redis, worker, nginx
+cp .env.example .env          # configure variables (JWT keys, DB, rate limits)
+docker compose up -d          # frontend (:8081), backend, postgres, nginx
 ```
+
+Development without Docker:
+
+```bash
+# Backend (Python 3.11+)
+cd apps/backend
+python -m venv .venv && .venv/bin/pip install -e '.[dev]'
+docker run -d --name reunionai-test-pg -e POSTGRES_USER=reunionai \
+  -e POSTGRES_PASSWORD=reunionai -e POSTGRES_DB=reunionai -p 5433:5432 postgres:16-alpine
+.venv/bin/ruff check . && .venv/bin/mypy app && .venv/bin/pytest
+
+# Frontend (pnpm)
+cd apps/frontend
+pnpm install && pnpm vitest run && pnpm dev
+```
+
+Bootstrap the first platform super-admin:
+
+```bash
+cd apps/backend
+.venv/bin/python -m app.cli bootstrap-superadmin \
+  --email admin@example.com --password <secret> --full-name "Admin"
+```
+
+CI: `.github/workflows/ci.yml` runs lint + typecheck + tests + build on every push/PR.
 
 ---
 

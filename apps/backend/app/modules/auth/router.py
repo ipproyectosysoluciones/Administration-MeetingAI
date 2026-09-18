@@ -14,7 +14,12 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.dependencies import AuthContext, get_db, require_auth
+from app.core.dependencies import (
+    AuthContext,
+    get_db,
+    require_auth,
+    resolve_auth_or_mfa_token,
+)
 from app.core.exceptions import APIError, ExpiredTokenError, InvalidTokenError
 from app.core.middleware.rate_limit import InMemoryRateLimiter
 from app.core.security import JWTService
@@ -57,6 +62,12 @@ def _bearer_token(request: Request) -> str | None:
     if scheme.lower() != "bearer" or not token.strip():
         return None
     return token.strip()
+
+
+# Accept an ``mfa_token`` from the login gate so a
+# user who still hasn't enrolled 2FA (e.g. a freshly registered org-admin or the
+# CLI-bootstrapped super-admin) can complete enrollment. Worded per TASK-046 fix.
+MfaCapable = Annotated[AuthContext, Depends(resolve_auth_or_mfa_token)]
 
 
 def _service(request: Request) -> AuthService:
@@ -182,7 +193,7 @@ async def revoke(request: Request, db: Db, context: Authenticated) -> dict[str, 
 
 
 @router.post("/auth/mfa/setup")
-async def mfa_setup(request: Request, db: Db, context: Authenticated) -> MfaSetupResponse:
+async def mfa_setup(request: Request, db: Db, context: MfaCapable) -> MfaSetupResponse:
     settings: Settings = request.app.state.settings
     ip = _ip(request) or "unknown"
     _check_rate_limit(request, "mfa", ip, settings.rate_limit_mfa_ip)
@@ -200,7 +211,7 @@ async def mfa_setup(request: Request, db: Db, context: Authenticated) -> MfaSetu
 
 @router.post("/auth/mfa/verify")
 async def mfa_verify(
-    payload: MfaVerifyRequest, request: Request, db: Db, context: Authenticated
+    payload: MfaVerifyRequest, request: Request, db: Db, context: MfaCapable
 ) -> MfaStatusResponse:
     if context.tenant_id is None:
         raise APIError(403, "NO_ACTIVE_MEMBERSHIP")

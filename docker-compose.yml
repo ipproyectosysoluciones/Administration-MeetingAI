@@ -1,0 +1,50 @@
+name: reunionai
+
+# Dev stack: `docker compose up -d` brings up the whole platform.
+# Prod overrides live in docker-compose.prod.yml. No secrets in images:
+# all configuration arrives through .env (see .env.example).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: reunionai
+      POSTGRES_PASSWORD: reunionai
+      POSTGRES_DB: reunionai
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reunionai -d reunionai"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./apps/backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://reunionai:reunionai@postgres:5432/reunionai
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health',timeout=5).status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./apps/frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
