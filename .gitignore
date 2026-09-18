@@ -224,3 +224,9 @@ __marimo__/
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# Agent harness (local, machine-specific)
+.pi/
+.agents/
+.windsurf/
+openspec/config.yaml
