@@ -41,15 +41,13 @@ async def bootstrap_superadmin(
     nothing.
     """
     existing = (
-        await session.execute(select(User).where(User.is_super_admin.is_(True)))
-    ).scalars().first()
+        (await session.execute(select(User).where(User.is_super_admin.is_(True)))).scalars().first()
+    )
     if existing is not None:
         return None, False
 
     session_factory_tenant = (
-        await session.execute(
-            select(Organization).where(Organization.slug == PLATFORM_ORG_SLUG)
-        )
+        await session.execute(select(Organization).where(Organization.slug == PLATFORM_ORG_SLUG))
     ).scalar_one_or_none()
     if session_factory_tenant is None:
         session_factory_tenant = Organization(name=PLATFORM_ORG_NAME, slug=PLATFORM_ORG_SLUG)

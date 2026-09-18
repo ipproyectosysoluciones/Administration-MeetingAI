@@ -230,3 +230,7 @@ yarn.lock
 .agents/
 .windsurf/
 openspec/config.yaml
+
+# Frontend source library must not be shadowed by the Python artifact pattern.
+!apps/frontend/src/lib/
+!apps/frontend/src/lib/**

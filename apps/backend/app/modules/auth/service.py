@@ -131,6 +131,16 @@ class AuthService:
         if existing is not None:
             raise APIError(409, "EMAIL_EXISTS", "Email already registered")
 
+        # Validate the organization slug upfront: the partial unique index would
+        # otherwise surface an opaque 500 on flush.
+        slug_taken = (
+            await session.execute(
+                select(Organization.id).where(Organization.slug == organization_slug)
+            )
+        ).scalar_one_or_none()
+        if slug_taken is not None:
+            raise APIError(409, "SLUG_EXISTS", "Organization slug already taken")
+
         org = Organization(name=organization_name, slug=organization_slug)
         session.add(org)
         await session.flush()
@@ -175,13 +185,15 @@ class AuthService:
             raise APIError(401, "INVALID_CREDENTIALS", "Invalid email or password")
         if not user.is_active or user.deleted_at is not None:
             raise APIError(403, "USER_INACTIVE", "User account is inactive")
-        if user.mfa_enabled:
+        mfa_gate = user.mfa_enabled or await self._holds_admin_role(session, user)
+        if mfa_gate:
+            # Admin roles without MFA enrollment get an enrollment-scoped MFA token
+            # (accepted by /auth/mfa/setup and /auth/mfa/verify) instead of a dead-end
+            # 403: without it a freshly registered org-admin could never log in again.
             return MFAPending(
                 mfa_token=self._jwt_service.create_mfa_token(user.id),
                 email=user.email,
             )
-        if await self._holds_admin_role(session, user):
-            raise APIError(403, "MFA_REQUIRED_FOR_ROLE", "MFA enrollment is required for this role")
 
         user.last_login_at = datetime.now(UTC)
         result = await self._issue(session, user, ip, user_agent)
@@ -200,9 +212,12 @@ class AuthService:
         ip: str | None,
         user_agent: str | None,
     ) -> AuthResult:
+        # Serialize concurrent rotations of the same token row (R4: refresh race).
         token = (
             await session.execute(
-                select(RefreshToken).where(RefreshToken.token_hash == _hash_token(raw_token))
+                select(RefreshToken)
+                .where(RefreshToken.token_hash == _hash_token(raw_token))
+                .with_for_update()
             )
         ).scalar_one_or_none()
         if token is None:
