@@ -207,6 +207,10 @@ def upgrade() -> None:
         "roles",
         ["organization_id", "name"],
         unique=True,
+        # Base roles have organization_id = NULL; without NULLS NOT DISTINCT the
+        # ON CONFLICT clause in _seed_roles() never matches and re-runs duplicate
+        # the base roles (R3-rbac-seed-not-idempotent).
+        postgresql_nulls_not_distinct=True,
     )
     op.create_index("ix_roles_organization_id", "roles", ["organization_id"])
     op.create_index("ix_roles_is_system", "roles", ["is_system"])

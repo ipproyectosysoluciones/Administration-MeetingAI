@@ -28,9 +28,7 @@ def session_factory(migrated_engine: AsyncEngine) -> async_sessionmaker:
 async def _counts(session_factory) -> tuple[int, int]:
     async with session_factory() as session:
         superadmins = (
-            await session.execute(
-                select(func.count(User.id)).where(User.is_super_admin.is_(True))
-            )
+            await session.execute(select(func.count(User.id)).where(User.is_super_admin.is_(True)))
         ).scalar_one()
         events = (
             await session.execute(

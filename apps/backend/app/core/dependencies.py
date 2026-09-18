@@ -155,6 +155,33 @@ def require_auth() -> Callable[[Request], Awaitable[AuthContext]]:
     return _resolve_authenticated
 
 
+async def resolve_auth_or_mfa_token(request: Request) -> AuthContext:
+    """Authenticate with an access token OR an MFA enrollment/challenge token.
+
+    The MFA enrollment endpoints (/auth/mfa/setup, /auth/mfa/verify) must accept the
+    limited-purpose ``mfa_token`` issued at the login gate: otherwise a user whose
+    role REQUIRES MFA but has not enrolled yet (freshly registered org-admin, CLI
+    super-admin) would be locked out with no enrollment path.
+    """
+    jwt_service: JWTService = request.app.state.jwt_service
+    resolver: AuthorizationResolver = request.app.state.authorization_resolver
+    token = _bearer_token(request)
+    if token is None or jwt_service is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = jwt_service.decode_access_token(token)
+    except (InvalidTokenError, ExpiredTokenError):
+        try:
+            payload = jwt_service.decode_mfa_token(token)
+        except (InvalidTokenError, ExpiredTokenError) as exc:
+            raise HTTPException(status_code=401, detail="Not authenticated") from exc
+    user_id = uuid.UUID(payload["sub"])
+    try:
+        return await resolver.resolve_context(user_id)
+    except TenantResolutionError as exc:
+        raise HTTPException(status_code=403, detail="No active membership") from exc
+
+
 def require_permission(permission: str) -> Callable[[Request], Awaitable[AuthContext]]:
     """FastAPI dependency enforcing ``resource.action`` (401 vs 403).
 
@@ -186,5 +213,6 @@ __all__ = [
     "require_auth",
     "require_permission",
     "resolve_active_membership",
+    "resolve_auth_or_mfa_token",
     "resolve_permissions",
 ]
