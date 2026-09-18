@@ -1054,3 +1054,16 @@ Commands:
   verified independently: vitest + tsc --noEmit clean.
 - Production lines ≈ 420 (3 components + client + 2 pages) — single slice, no compression.
 - Backend untouched.
+
+## TASK-110 — Docker compose stack (Phase 11)
+
+- New: root `docker-compose.yml` (postgres + backend + frontend-nginx), `docker-compose.prod.yml`,
+  `apps/backend/Dockerfile` (alembic upgrade + uvicorn), `apps/frontend/Dockerfile`
+  (node build → nginx, serves static + proxies /api), `infra/nginx/nginx.conf`.
+- Fixes during smoke: setuptools packages=[\"app\"] in backend pyproject (flat-layout build failure);
+  alembic promoted from dev extras to runtime deps; pnpm v10 requires
+  `dangerously-allow-all-builds`; default port moved 8080→8081 (dozzle port clash on the host).
+- Smoke (`docker compose up -d --build`): postgres healthy, backend healthy (migrations applied),
+  frontend serves `/` and `/login` (200), `/api/v1/auth/login` reachable through the nginx
+  proxy with correct JSON error envelope. Stack torn down after smoke (`docker compose down`).
+- Redis/worker omitted deliberately: no consumer exists yet (AGENTS.md §10 — only when justified).
