@@ -73,7 +73,7 @@ Sources: `proposal.md`, `specs/**/spec.md`, `architecture.md`, `data-model.md`, 
 ## Phase 11 — Docker, CI & Bootstrap
 
 - [x] **TASK-110** `chore: docker-compose (frontend, backend, postgres, nginx)` — dev/prod split, no secrets in images. Tests: `docker compose up -d` health smoke.
-- [ ] **TASK-111** `feat: super-admin bootstrap CLI` — creates first platform super-admin (Q1 decision). Tests: CLI idempotent, creates audited event.
+- [x] **TASK-111** `feat: super-admin bootstrap CLI` — creates first platform super-admin (Q1 decision). Tests: CLI idempotent, creates audited event.
 - [ ] **TASK-112** `chore: GitHub Actions CI (lint, typecheck, unit, integration, build)` — per AGENTS.md §12 gates. Tests: pipeline green.
 - [ ] **TASK-113** `docs: README quickstart + docs/architecture notes for this change` — update README if commands changed.
 
