@@ -1,6 +1,6 @@
 # ReunionAI frontend — builds the static Astro site, then serves it with nginx
 # and proxies /api/* to the backend service (see infra/nginx/nginx.conf).
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
