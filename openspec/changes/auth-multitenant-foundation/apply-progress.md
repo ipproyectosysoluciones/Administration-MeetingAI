@@ -1077,3 +1077,13 @@ Commands:
   (append-only trigger + FK make multi-test cleanup impossible by design).
 - Usage in compose: `docker compose exec backend python -m app.cli bootstrap-superadmin ...`.
 - Gates: pytest +1 (185 total), ruff/mypy clean.
+
+## TASK-112 — GitHub Actions CI (Phase 11)
+
+- New: `.github/workflows/ci.yml` — two jobs:
+  - **backend**: python 3.12, postgres:16 service on :5433, `ruff check`, `ruff format --check`,
+    `mypy app`, full `pytest -q` against the service DB.
+  - **frontend**: node 20 + pnpm, `tsc --noEmit`, `vitest run`, `astro build`.
+- Triggers: push to main/develop/feature/* and PRs.
+- Validated as YAML locally; the pipeline itself goes green on the first push (TASK-113
+  documents the commands it runs).
