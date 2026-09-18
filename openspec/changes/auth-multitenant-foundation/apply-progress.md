@@ -1087,3 +1087,10 @@ Commands:
 - Triggers: push to main/develop/feature/* and PRs.
 - Validated as YAML locally; the pipeline itself goes green on the first push (TASK-113
   documents the commands it runs).
+
+## TASK-113 — Docs (Phase 11)
+
+- README: real quickstart (compose one-liner, no-Docker dev loop, test DB container,
+  bootstrap CLI, CI pointer) in both ES and EN sections.
+- New: `docs/architecture/auth-multitenant-foundation.md` — module surface, security
+  invariants, infra, deferred scope.
