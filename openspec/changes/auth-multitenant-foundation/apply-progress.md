@@ -1067,3 +1067,13 @@ Commands:
   frontend serves `/` and `/login` (200), `/api/v1/auth/login` reachable through the nginx
   proxy with correct JSON error envelope. Stack torn down after smoke (`docker compose down`).
 - Redis/worker omitted deliberately: no consumer exists yet (AGENTS.md §10 — only when justified).
+
+## TASK-111 — Super-admin bootstrap CLI (Phase 11)
+
+- New: `app/cli.py` with `bootstrap-superadmin` — creates the platform org + first
+  `is_super_admin` user + audited event (`platform.super_admin.bootstrap`). Idempotent:
+  when a super-admin exists it is a strict no-op (no row, no event).
+- Test: single integration test covering create → audit → idempotent re-run
+  (append-only trigger + FK make multi-test cleanup impossible by design).
+- Usage in compose: `docker compose exec backend python -m app.cli bootstrap-superadmin ...`.
+- Gates: pytest +1 (185 total), ruff/mypy clean.
