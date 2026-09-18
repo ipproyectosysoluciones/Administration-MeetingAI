@@ -9,7 +9,10 @@ interface MfaChallengeFormProps {
   onSuccess?: (result: TokenResponse) => void;
 }
 
-export function MfaChallengeForm({ mfaToken, onSuccess }: MfaChallengeFormProps) {
+export function MfaChallengeForm({
+  mfaToken,
+  onSuccess,
+}: MfaChallengeFormProps) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

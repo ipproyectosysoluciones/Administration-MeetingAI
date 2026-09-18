@@ -38,7 +38,9 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
       return;
     }
     if (!SLUG_RE.test(form.organization_slug)) {
-      setError("El slug de la organización solo admite minúsculas, números y guiones");
+      setError(
+        "El slug de la organización solo admite minúsculas, números y guiones",
+      );
       return;
     }
     setLoading(true);

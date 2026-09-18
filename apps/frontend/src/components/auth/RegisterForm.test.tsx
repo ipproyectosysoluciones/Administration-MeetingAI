@@ -18,7 +18,9 @@ vi.mock("../../lib/api", async (importOriginal) => {
 });
 
 function fill(screen_: typeof screen) {
-  fireEvent.change(screen_.getByLabelText(/^email/i), { target: { value: validForm.email } });
+  fireEvent.change(screen_.getByLabelText(/^email/i), {
+    target: { value: validForm.email },
+  });
   fireEvent.change(screen_.getByLabelText(/contraseña/i), {
     target: { value: validForm.password },
   });
@@ -48,7 +50,9 @@ describe("RegisterForm", () => {
   it("rejects short passwords", async () => {
     render(<RegisterForm />);
     fill(screen);
-    fireEvent.change(screen.getByLabelText(/contraseña/i), { target: { value: "short" } });
+    fireEvent.change(screen.getByLabelText(/contraseña/i), {
+      target: { value: "short" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /crear cuenta/i }));
     const alert = await screen.findByTestId("register-error");
     expect(alert.textContent).toMatch(/12 caracteres/);
@@ -57,7 +61,9 @@ describe("RegisterForm", () => {
   it("rejects invalid organization slugs", async () => {
     render(<RegisterForm />);
     fill(screen);
-    fireEvent.change(screen.getByLabelText(/slug/i), { target: { value: "Torre Norte!" } });
+    fireEvent.change(screen.getByLabelText(/slug/i), {
+      target: { value: "Torre Norte!" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /crear cuenta/i }));
     const alert = await screen.findByTestId("register-error");
     expect(alert.textContent).toMatch(/slug/i);

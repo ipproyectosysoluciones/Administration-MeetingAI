@@ -16,7 +16,9 @@ describe("MfaChallengeForm", () => {
 
   it("rejects non-6-digit codes", async () => {
     render(<MfaChallengeForm mfaToken="mtok" />);
-    fireEvent.change(screen.getByLabelText(/código/i), { target: { value: "12" } });
+    fireEvent.change(screen.getByLabelText(/código/i), {
+      target: { value: "12" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /verificar/i }));
     expect(await screen.findByTestId("mfa-error")).toBeDefined();
     expect(api.mfaChallenge).not.toHaveBeenCalled();
@@ -40,7 +42,9 @@ describe("MfaChallengeForm", () => {
     });
     const onSuccess = vi.fn();
     render(<MfaChallengeForm mfaToken="mtok" onSuccess={onSuccess} />);
-    fireEvent.change(screen.getByLabelText(/código/i), { target: { value: "123456" } });
+    fireEvent.change(screen.getByLabelText(/código/i), {
+      target: { value: "123456" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /verificar/i }));
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
     expect(api.mfaChallenge).toHaveBeenCalledWith("mtok", "123456");
