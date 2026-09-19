@@ -63,7 +63,7 @@ export function MeetingList({ token }: Props) {
         <ul>
           {data.items.map((m) => (
             <li key={m.id}>
-              <a href={`/meetings/${m.id}`}>{m.title}</a> <StatusBadge status={m.status} />{" "}
+              <a href={`/meetings/detail?id=${m.id}`}>{m.title}</a> <StatusBadge status={m.status} />{" "}
               {new Date(m.starts_at).toLocaleString("es-CO", {
                 timeZone: "America/Bogota",
               })}
