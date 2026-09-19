@@ -9,8 +9,8 @@ Conventional commits; slice budget ≤400 production lines each (test-plan.md). 
 
 ## Slice S2 — Meetings service + API
 
-- [ ] **TASK-210** `feat: meetings service core` — create/get/list/paginate with filters (status/date_from/date_to/q), timezone conversion America/Bogota↔UTC, FSM transitions scheduled→in_progress→finished→cancelled with 422 on invalid, audit event on every mutation. Tests: unit (12+) + integration CRUD (18+).
-- [ ] **TASK-211** `feat: meetings REST router` — POST/GET list/GET detail/PATCH/POST /{id}/cancel with require_permission per api-contract; request/response schemas Pydantic; tenant injection via auth context (never client). Tests: 401/403/404/422 wire tests; cross-tenant 404 case (extends isolation suite).
+- [x] **TASK-210** `feat: meetings service core` — create/get/list/paginate with filters (status/date_from/date_to/q), timezone conversion America/Bogota↔UTC, FSM transitions scheduled→in_progress→finished→cancelled with 422 on invalid, audit event on every mutation. Tests: unit (12+) + integration CRUD (18+).
+- [x] **TASK-211** `feat: meetings REST router` — POST/GET list/GET detail/PATCH/POST /{id}/cancel with require_permission per api-contract; request/response schemas Pydantic; tenant injection via auth context (never client). Tests: 401/403/404/422 wire tests; cross-tenant 404 case (extends isolation suite).
 
 ## Slice S3 — Participants service + API
 
