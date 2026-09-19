@@ -217,7 +217,7 @@ CHECK (
 | ----------|--------|
 | `meetings → core` | Database engine, dependencies (get_tenant_id, require_permission) |
 | `meetings → organizations` | `tenant_id` FK → `organizations.id`; read org name/slug for response |
-| `meetings → rbac` | `require_permission("meeting.create/read/update/cancel/participant.manage")` |
+| `meetings → rbac` | `require_permission("meeting.create/read/update/cancel/participant_manage")` |
 | `meetings → audit` | Auto-audit middleware; explicit `AuditEvent` records on mutate |
 | `meeting_participants → meetings` | FK `meeting_id`; cascade on meeting soft-delete |
 | `meeting_participants → users` | FK `user_id`; restrict on user delete if participants exist |

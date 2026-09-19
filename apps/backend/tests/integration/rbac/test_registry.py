@@ -95,4 +95,5 @@ async def test_seeding_is_idempotent(session_factory: async_sessionmaker) -> Non
             await session.execute(select(func.count()).select_from(Permission))
         ).scalar_one()
     assert base_count == 10
-    assert perm_count == 34  # exact data-model.md §2.3 seed set; rerunning seed keeps it stable
+    # 34 foundation perms + 5 meeting.* perms (TASK-201); rerunning seed keeps it stable.
+    assert perm_count == 39

@@ -31,7 +31,7 @@
 | ------ | ------ | ------------- |
 | 401 | `INVALID_TOKEN` | Access token invalid/expired/malformed |
 | 401 | `REFRESH_TOKEN_REUSE_DETECTED` | (inherited from auth; not meetings-specific) |
-| 403 | `PERMISSION_DENIED` | User lacks `meeting.read/create/update/cancel/participant.manage` |
+| 403 | `PERMISSION_DENIED` | User lacks `meeting.read/create/update/cancel/participant_manage` |
 | 403 | `TENANT_ISOLATION_VIOLATION` | (cross-tenant access attempt — treated as 404 per policy) |
 | 404 | `MEETING_NOT_FOUND` | Meeting not found in current tenant (cross-tenant → 404, never 403) |
 | 404 | `PARTICIPANT_NOT_FOUND` | Participant not found in current tenant |
@@ -242,7 +242,7 @@ Only `status` is allowed in the PATCH body for status changes; other fields (`ti
 ### 3.6 POST `/api/v1/meetings/{meeting_id}/participants`
 
 **Auth:** Access token
-**Permission:** `meeting.participant.manage`
+**Permission:** `meeting.participant_manage`
 **Description:** Add a participant to the meeting. Internal user (by `user_id`) or external invitee (by `email`).
 
 **Request — Internal user:**
@@ -288,7 +288,7 @@ Only `status` is allowed in the PATCH body for status changes; other fields (`ti
 **Errors:**
 
 - `401 UNAUTHORIZED` — Invalid token (code: `INVALID_TOKEN`)
-- `403 FORBIDDEN` — User lacks `meeting.participant.manage` (code: `PERMISSION_DENIED`)
+- `403 FORBIDDEN` — User lacks `meeting.participant_manage` (code: `PERMISSION_DENIED`)
 - `404 NOT_FOUND` — Meeting not in current tenant (code: `MEETING_NOT_FOUND`)
 - `409 MEETING_DUPLICATE_PARTICIPANT` — Internal user already participant in this meeting (code: `MEETING_DUPLICATE_PARTICIPANT`), or external email already invited
 
@@ -297,7 +297,7 @@ Only `status` is allowed in the PATCH body for status changes; other fields (`ti
 ### 3.7 DELETE `/api/v1/meetings/{meeting_id}/participants/{participant_id}`
 
 **Auth:** Access token
-**Permission:** `meeting.participant.manage`
+**Permission:** `meeting.participant_manage`
 **Description:** Remove a participant from the meeting.
 
 **Response 204:** No content (204 No Content).
@@ -305,7 +305,7 @@ Only `status` is allowed in the PATCH body for status changes; other fields (`ti
 **Errors:**
 
 - `401 UNAUTHORIZED` — Invalid token (code: `INVALID_TOKEN`)
-- `403 FORBIDDEN` — User lacks `meeting.participant.manage` (code: `PERMISSION_DENIED`)
+- `403 FORBIDDEN` — User lacks `meeting.participant_manage` (code: `PERMISSION_DENIED`)
 - `404 NOT_FOUND` — Meeting not in current tenant (code: `MEETING_NOT_FOUND`), or participant not found in current tenant (code: `PARTICIPANT_NOT_FOUND`)
 
 ---
@@ -402,7 +402,7 @@ class ParticipantResponse(BaseModel):
 | `meeting.read` | Read meetings (list + detail) | All roles; cross-tenant → 404 |
 | `meeting.update` | Update meetings (status, fields) | org_admin, president, secretary |
 | `meeting.cancel` | Cancel meetings (set status cancelled) | org_admin, president, secretary |
-| `meeting.participant.manage` | Manage participants (add/remove) | org_admin, president, secretary |
+| `meeting.participant_manage` | Manage participants (add/remove) | org_admin, president, secretary |
 
 **Note:** Resident and guest roles have `meeting.read` only (read-own, per auth foundation §5.2 matrix). Board member may have `meeting.read` only.
 

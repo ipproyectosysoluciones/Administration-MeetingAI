@@ -10,7 +10,7 @@ New resource: `meeting` with actions below. Base roles extend per data-model §4
 | meeting.read | ✓ | ✓ | ✓ | ✓ | read-own only |
 | meeting.update | ✓ | ✓ | | | own* |
 | meeting.cancel | ✓ | ✓ | | | |
-| meeting.participant.manage | ✓ | ✓ | | | |
+| meeting.participant_manage | ✓ | ✓ | | | |
 
 *overlapping edits of an attendance-marking allowed; see meeting_status rules.
 
@@ -32,7 +32,7 @@ New resource: `meeting` with actions below. Base roles extend per data-model §4
 **Scenarios:**
 1. POST /meetings/{id}/participants with `{user_id, role}` → 201; duplicate → 409.
 2. External: POST with `{email, role}` → 201. Email-only; no user auto-creation.
-3. DELETE /meetings/{id}/participants/{participant_id} with `meeting.participant.manage` → 204.
+3. DELETE /meetings/{id}/participants/{participant_id} with `meeting.participant_manage` → 204.
 4. Role in meeting: `organizer` | `presenter` | `attendee`.
 
 ### R3 — Status lifecycle
