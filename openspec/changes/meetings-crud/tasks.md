@@ -26,7 +26,7 @@ Conventional commits; slice budget ≤400 production lines each (test-plan.md). 
 ## Phase final
 
 - [x] **TASK-240** `test: extend cross-tenant isolation suite with meetings + participants matrix` — REQUIRES suite ≥6 new cases in tests/integration/isolation.
-- [ ] **TASK-241** `docs: update architecture notes + api-contract references` — README snippet if any command changed.
+- [x] **TASK-241** `docs: update architecture notes + api-contract references` — README snippet if any command changed.
 - [ ] **TASK-242** `chore: review-readiness pass` — ruff + mypy + full pytest + vitest + tsc; verify apply-progress.md entries; close issue #48 on merge.
 
 ## Review Workload Forecast
