@@ -5,7 +5,7 @@ Conventional commits; slice budget ≤400 production lines each (test-plan.md). 
 ## Slice S1 — Data foundation
 
 - [ ] **TASK-200** `feat: migration 005 meetings + meeting_participants` — UUID PKs, tenant_id NOT NULL + indexes ((tenant_id,date), (tenant_id,status)), status CHECK (scheduled/in_progress/finished/cancelled) + soft delete on meetings, participant role enum (organizer/presenter/attendee), FK user_id nullable (external invitees). Tests: migration smoke + schema introspection + append-only/downs smoke.
-- [ ] **TASK-201** `feat: seed meeting.* permissions + base-role mapping` — meeting.read/create/update/cancel/participant.manage per spec matrix; idempotent seeding. Tests: permission registry integration test extended.
+- [ ] **TASK-201** `feat: seed meeting.* permissions + base-role mapping` — meeting.read/create/update/cancel/participant_manage per spec matrix; idempotent seeding. Tests: permission registry integration test extended.
 
 ## Slice S2 — Meetings service + API
 
@@ -15,7 +15,7 @@ Conventional commits; slice budget ≤400 production lines each (test-plan.md). 
 ## Slice S3 — Participants service + API
 
 - [ ] **TASK-220** `feat: meeting participants service` — add internal user (validates user in same tenant, role), add external email, remove, list; duplicate guard 409; audit events. Tests: unit + integration (8+).
-- [ ] **TASK-221** `feat: participants REST router` — POST/DELETE/GET under /api/v1/meetings/{id}/participants with meeting.participant.manage. Tests: permission matrix + cross-tenant 404.
+- [ ] **TASK-221** `feat: participants REST router` — POST/DELETE/GET under /api/v1/meetings/{id}/participants with meeting.participant_manage. Tests: permission matrix + cross-tenant 404.
 
 ## Slice S4 — Frontend (portal)
 

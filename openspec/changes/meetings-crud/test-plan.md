@@ -9,7 +9,7 @@ Conventions: strict TDD (RED → GREEN → REFACTOR), evidence = commit sequence
 **Integration (API + Postgres test container):**
 - CRUD: create 201 + audit, read own (list + detail), update, cancel; filters (`status`, `date_from/to`, `q`), pagination, 422 validations. Min: 18 tests.
 - Participants: internal add/remove (incl. duplicate 409), external email add/remove, 404 cross-tenant. Min: 8 tests.
-- RBAC: every endpoint × {meeting.read/create/update/cancel/participant.manage} absent → 403; unauthenticated → 401. Min: 12 tests.
+- RBAC: every endpoint × {meeting.read/create/update/cancel/participant_manage} absent → 403; unauthenticated → 401. Min: 12 tests.
 - Isolation extension: tenant B cannot see/act on tenant A meetings or participants (404 only) — extends `tests/integration/isolation/`. Min: 6 tests.
 
 **Frontend (vitest + jsdom):** list/detail/create-form render + validation + API client paths, error envelope display. Min: 10 tests.
