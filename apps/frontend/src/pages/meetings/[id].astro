@@ -1,0 +1,14 @@
+---
+import { MeetingDetail } from "../../components/meetings/MeetingDetail";
+
+const { id } = Astro.params;
+---
+
+<html lang="es">
+  <head><title>ReunionAI — Reunión</title></head>
+  <body>
+    <main>
+      <MeetingDetail client:load meetingId={id} />
+    </main>
+  </body>
+</html>

@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 
 import { ApiError, isMfaPending, login } from "../../lib/api";
 import type { TokenResponse } from "../../lib/api";
+import { setAccessToken } from "../../lib/session";
 import { MfaChallengeForm } from "./MfaChallengeForm";
 
 interface LoginFormProps {
@@ -29,6 +30,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       if (isMfaPending(result)) {
         setMfaToken(result.mfa_token);
       } else {
+        setAccessToken(result.access_token);
         onSuccess?.(result);
       }
     } catch (err) {
