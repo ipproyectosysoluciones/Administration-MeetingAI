@@ -20,13 +20,17 @@ async def test_meetings_schema_and_constraints(migrated_engine: AsyncEngine) -> 
         assert colmap["starts_at"] == "NO"
 
         checks = (
-            await conn.execute(
-                text(
-                    "SELECT conname FROM pg_constraint WHERE conrelid = 'meetings'::regclass "
-                    "AND contype = 'c'"
+            (
+                await conn.execute(
+                    text(
+                        "SELECT conname FROM pg_constraint WHERE conrelid = 'meetings'::regclass "
+                        "AND contype = 'c'"
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         names = set(checks)
         assert any(n.endswith("status") for n in names)
         assert any(n.endswith("modality") for n in names)
@@ -46,9 +50,7 @@ async def test_meeting_participants_channels(migrated_engine: AsyncEngine) -> No
 
 async def test_meeting_permissions_seeded(migrated_engine: AsyncEngine) -> None:
     async with migrated_engine.connect() as conn:
-        perms = await conn.execute(
-            text("SELECT name FROM permissions WHERE resource = 'meeting'")
-        )
+        perms = await conn.execute(text("SELECT name FROM permissions WHERE resource = 'meeting'"))
         names = {r.name for r in perms}
         assert {
             "meeting.create",

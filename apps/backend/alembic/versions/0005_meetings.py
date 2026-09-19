@@ -134,9 +134,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         # Exactly one channel: internal user OR external email.
-        sa.Column(
-            "user_id", _UUID, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=True
-        ),
+        sa.Column("user_id", _UUID, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=True),
         sa.Column("external_email", sa.String(255)),
         sa.Column("role", sa.String(20), nullable=False, server_default="attendee"),
         sa.Column(
