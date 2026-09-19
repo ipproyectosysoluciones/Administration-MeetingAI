@@ -147,6 +147,7 @@ class MeetingService:
 
         fields = payload.model_dump(exclude_unset=True)
         new_status = fields.pop("status", None)
+        status_changed = new_status is not None and new_status != meeting.status
         for key, value in fields.items():
             setattr(meeting, key, value)
 
@@ -154,7 +155,7 @@ class MeetingService:
             if meeting.ends_at <= meeting.starts_at:
                 raise APIError(422, "INVALID_TIME_RANGE", "ends_at must be after starts_at")
 
-        if new_status is not None and new_status != meeting.status:
+        if status_changed:
             allowed = MEETING_TRANSITIONS.get(meeting.status, set())
             if new_status not in allowed:
                 raise APIError(
@@ -164,7 +165,7 @@ class MeetingService:
                 )
             meeting.status = new_status
 
-        if fields or (new_status is not None and new_status != meeting.status):
+        if fields or status_changed:
             await AuditService.record(
                 session,
                 actor_user_id=actor_user_id,
