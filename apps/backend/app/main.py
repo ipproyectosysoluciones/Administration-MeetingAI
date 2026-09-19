@@ -13,6 +13,8 @@ from app.core.middleware.rate_limit import InMemoryRateLimiter
 from app.core.security import JWTService, PasswordHasher
 from app.modules.audit.router import router as audit_router
 from app.modules.auth.router import router as auth_router
+from app.modules.meetings.participants_router import router as meeting_participants_router
+from app.modules.meetings.router import router as meetings_router
 from app.modules.organizations.router import router as organizations_router
 from app.modules.rbac.assignments_router import router as rbac_assignments_router
 from app.modules.rbac.resolver import DBAuthorizationResolver
@@ -52,6 +54,8 @@ def create_app(
     app.include_router(organizations_router, prefix="/api/v1")
     app.include_router(rbac_roles_router, prefix="/api/v1")
     app.include_router(rbac_assignments_router, prefix="/api/v1")
+    app.include_router(meetings_router, prefix="/api/v1")
+    app.include_router(meeting_participants_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")
 
     @app.exception_handler(APIError)
