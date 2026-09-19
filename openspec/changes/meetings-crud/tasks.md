@@ -19,9 +19,9 @@ Conventional commits; slice budget ≤400 production lines each (test-plan.md). 
 
 ## Slice S4 — Frontend (portal)
 
-- [ ] **TASK-230** `feat: meetings list page` — Astro page + React list component, filters UI, status badge, error state, empty state. Tests: vitest render + interactions.
-- [ ] **TASK-231** `feat: meeting create/edit form` — React form with validation (date/time split, modality enum, participants UI with internal picker + external email add), server-error envelope display. Tests: vitest component tests incl. API-error mapping.
-- [ ] **TASK-232** `feat: meeting detail page` — status badge/time formatting (America/Bogota), participants manager, cancel action with confirm. Tests: vitest.
+- [x] **TASK-230** `feat: meetings list page` — Astro page + React list component, filters UI, status badge, error state, empty state. Tests: vitest render + interactions.
+- [x] **TASK-231** `feat: meeting create/edit form` — React form with validation (date/time split, modality enum, participants UI with internal picker + external email add), server-error envelope display. Tests: vitest component tests incl. API-error mapping.
+- [x] **TASK-232** `feat: meeting detail page` — status badge/time formatting (America/Bogota), participants manager, cancel action with confirm. Tests: vitest.
 
 ## Phase final
 
