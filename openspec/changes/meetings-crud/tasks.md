@@ -4,8 +4,8 @@ Conventional commits; slice budget ≤400 production lines each (test-plan.md). 
 
 ## Slice S1 — Data foundation
 
-- [ ] **TASK-200** `feat: migration 005 meetings + meeting_participants` — UUID PKs, tenant_id NOT NULL + indexes ((tenant_id,date), (tenant_id,status)), status CHECK (scheduled/in_progress/finished/cancelled) + soft delete on meetings, participant role enum (organizer/presenter/attendee), FK user_id nullable (external invitees). Tests: migration smoke + schema introspection + append-only/downs smoke.
-- [ ] **TASK-201** `feat: seed meeting.* permissions + base-role mapping` — meeting.read/create/update/cancel/participant_manage per spec matrix; idempotent seeding. Tests: permission registry integration test extended.
+- [x] **TASK-200** `feat: migration 005 meetings + meeting_participants` — UUID PKs, tenant_id NOT NULL + indexes ((tenant_id,date), (tenant_id,status)), status CHECK (scheduled/in_progress/finished/cancelled) + soft delete on meetings, participant role enum (organizer/presenter/attendee), FK user_id nullable (external invitees). Tests: migration smoke + schema introspection + append-only/downs smoke.
+- [x] **TASK-201** `feat: seed meeting.* permissions + base-role mapping` — meeting.read/create/update/cancel/participant_manage per spec matrix; idempotent seeding. Tests: permission registry integration test extended.
 
 ## Slice S2 — Meetings service + API
 
