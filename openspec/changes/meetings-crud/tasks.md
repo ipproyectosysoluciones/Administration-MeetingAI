@@ -14,8 +14,8 @@ Conventional commits; slice budget ≤400 production lines each (test-plan.md). 
 
 ## Slice S3 — Participants service + API
 
-- [ ] **TASK-220** `feat: meeting participants service` — add internal user (validates user in same tenant, role), add external email, remove, list; duplicate guard 409; audit events. Tests: unit + integration (8+).
-- [ ] **TASK-221** `feat: participants REST router` — POST/DELETE/GET under /api/v1/meetings/{id}/participants with meeting.participant_manage. Tests: permission matrix + cross-tenant 404.
+- [x] **TASK-220** `feat: meeting participants service` — add internal user (validates user in same tenant, role), add external email, remove, list; duplicate guard 409; audit events. Tests: unit + integration (8+).
+- [x] **TASK-221** `feat: participants REST router` — POST/DELETE/GET under /api/v1/meetings/{id}/participants with meeting.participant_manage. Tests: permission matrix + cross-tenant 404.
 
 ## Slice S4 — Frontend (portal)
 
