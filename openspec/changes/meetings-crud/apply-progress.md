@@ -13,3 +13,10 @@
 ## Slice S3 (TASK-220/221) — PR #51
 
 - participants_service + participants_router; internal/external channels with CHECK constraint + RBAC meeting.participant_manage (403), duplicate 409, cross-tenant 404 via tenancy of parent meeting. Suite backend 205/205.
+
+## TASK-240/241/242 — aislamiento + docs + cierre
+
+- Extendida la suite de aislamiento con 6 casos para meetings/participants (#54).
+- `docs/architecture/meetings-crud.md` documenta el módulo (FSM, participantes, aislamiento).
+- Suite final: backend 214/214 ✔ ruff/format ✔ mypy ✔; frontend 17/17 ✔ tsc ✔ build ✔.
+- El cambio `meetings-crud` queda completo. Seguimiento: `meetings-recording-upload`.
