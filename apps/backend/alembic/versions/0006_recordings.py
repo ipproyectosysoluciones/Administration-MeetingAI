@@ -121,7 +121,7 @@ def upgrade() -> None:
         sa.Column("id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column("type", sa.String(64), nullable=False),
         sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-    sa.Column(
+        sa.Column(
             "status",
             sa.String(20),
             nullable=False,
@@ -152,7 +152,8 @@ def upgrade() -> None:
     )
     op.create_index(
         "ix_jobs_pending",
-        "jobs", ["run_at"],
+        "jobs",
+        ["run_at"],
         postgresql_where=sa.text("status = 'pending'"),
     )
 
