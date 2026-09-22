@@ -127,10 +127,10 @@ async def test_rbac_constraints_and_seed(migrated_engine: AsyncEngine) -> None:
             )
         ).scalar_one()
 
-    assert perms == 39
+    assert perms == 42
     assert roles == 10
-    assert super_admin == 39
-    assert org_admin == 32
+    assert super_admin == 42
+    assert org_admin == 35
 
 
 async def test_audit_schema_and_append_only(migrated_engine: AsyncEngine) -> None:
