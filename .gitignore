@@ -238,3 +238,6 @@ data/recordings/
 
 # Test artifacts
 apps/backend/data/
+
+# Local ODD task tracking
+odd/
