@@ -19,6 +19,7 @@ from app.modules.organizations.router import router as organizations_router
 from app.modules.rbac.assignments_router import router as rbac_assignments_router
 from app.modules.rbac.resolver import DBAuthorizationResolver
 from app.modules.rbac.roles_router import router as rbac_roles_router
+from app.modules.recordings.router import router as recordings_router
 from app.modules.users.router import router as users_router
 
 
@@ -57,6 +58,7 @@ def create_app(
     app.include_router(meetings_router, prefix="/api/v1")
     app.include_router(meeting_participants_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")
+    app.include_router(recordings_router, prefix="/api/v1")
 
     @app.exception_handler(APIError)
     async def _api_error_handler(request: Request, exc: APIError) -> JSONResponse:

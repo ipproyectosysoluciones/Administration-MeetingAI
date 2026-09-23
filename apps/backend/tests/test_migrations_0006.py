@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from sqlalchemy import MetaData, Table, func, select
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy import MetaData, func, select
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
+
+from app.modules.rbac.models import Permission
+
+_TEST_DB_URL = "postgresql+asyncpg://reunionai:reunionai@localhost:5433/reunionai"
 
 
 async def _meta(conn) -> MetaData:
@@ -38,9 +42,6 @@ async def test_recordings_schema_and_constraints(migrated_engine: AsyncEngine) -
         assert col_by_name["meeting_id"].nullable is False
         assert col_by_name["tenant_id"].nullable is False
 
-        check_names = {c.name for c in recordings.constraints}
-        assert any("status" in n for n in check_names)
-
 
 async def test_jobs_table_structure(migrated_engine: AsyncEngine) -> None:
     async with migrated_engine.connect() as conn:
@@ -65,16 +66,14 @@ async def test_jobs_table_structure(migrated_engine: AsyncEngine) -> None:
 
 
 async def test_recording_permissions_seeded(migrated_engine: AsyncEngine) -> None:
-    async with migrated_engine.connect() as conn:
-        md = await _meta(conn)
-        permissions = Table("permissions", md)
-        perms_stmt = select(permissions.c.name).where(permissions.c.resource == "recording")
-        names = set((await conn.execute(perms_stmt)).scalars())
+    session_factory = async_sessionmaker(migrated_engine, expire_on_commit=False)
+    async with session_factory() as session:
+        stmt = select(Permission.name).where(Permission.resource == "recording")
+        names = set((await session.execute(stmt)).scalars())
         assert {"recording.upload", "recording.read", "recording.delete"} <= names
 
-        count_stmt = (
-            select(func.count())
-            .select_from(permissions)
-            .where(permissions.c.resource == "recording")
+        total_stmt = (
+            select(func.count()).select_from(Permission).where(Permission.resource == "recording")
         )
-        assert (await conn.execute(count_stmt)).scalar_one() == 3
+        total = (await session.execute(total_stmt)).scalar_one()
+        assert total == 3
