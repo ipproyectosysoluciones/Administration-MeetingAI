@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+from datetime import UTC, datetime
 from typing import Any, BinaryIO
 
 from sqlalchemy import select
@@ -222,24 +223,33 @@ class RecordingService:
         ip: str | None,
         user_agent: str | None,
     ) -> None:
-        recording = await self._get_scoped(session, recording_id, tenant_id)
-        from datetime import UTC, datetime
-
-        now = datetime.now(UTC)
-        if recording.deleted_at is None:
-            recording.deleted_at = now
-            await AuditService.record(
-                session,
-                actor_user_id=actor_user_id,
-                tenant_id=tenant_id,
-                action="recording.delete",
-                resource="recording",
-                resource_id=recording.id,
-                ip=ip,
-                user_agent=user_agent,
+        # Idempotente: no filtramos deleted_at — sino la segunda llamada da 404.
+        recording = (
+            await session.execute(
+                select(Recording).where(
+                    Recording.id == recording_id,
+                    Recording.tenant_id == tenant_id,
+                )
             )
-            await session.commit()
-        # soft delete idempotent — never raise on a second call
+        ).scalar_one_or_none()
+        if recording is None:
+            raise APIError(404, "RECORDING_NOT_FOUND", "Recording not found")
+        if recording.deleted_at is not None:
+            return  # already deleted: no-op (spec: idempotent)
+        recording.deleted_at = datetime.now(UTC)
+        recording.status = "failed"
+        await AuditService.record(
+            session,
+            actor_user_id=actor_user_id,
+            tenant_id=tenant_id,
+            action="recording.delete",
+            resource="recording",
+            resource_id=recording.id,
+            ip=ip,
+            user_agent=user_agent,
+        )
+        await session.commit()
+        return
 
     # -- helpers ---------------------------------------------------------------
 
