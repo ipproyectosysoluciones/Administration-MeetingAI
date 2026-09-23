@@ -235,3 +235,6 @@ openspec/config.yaml
 !apps/frontend/src/lib/
 !apps/frontend/src/lib/**
 data/recordings/
+
+# Test artifacts
+apps/backend/data/
