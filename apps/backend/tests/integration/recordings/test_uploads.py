@@ -49,9 +49,6 @@ async def _upload(
         )
 
 
-
-
-
 async def test_upload_201_and_sha256_idempotent(
     app: FastAPI, session_factory: async_sessionmaker
 ) -> None:
@@ -90,9 +87,7 @@ async def test_download_streams_and_audits(
     up = await _upload(app, a["access_token"], mid, "junta.mp3", MP3_BYTES)
     rid = up.json()["id"]
 
-    dl = await api(
-        app, "GET", f"/api/v1/recordings/{rid}/content", token=a["access_token"]
-    )
+    dl = await api(app, "GET", f"/api/v1/recordings/{rid}/content", token=a["access_token"])
     assert dl.status_code == 200
     assert dl.content == MP3_BYTES
 
@@ -127,7 +122,9 @@ async def test_non_owner_cannot_upload_or_read(
     a, mid = await _meeting_with_rec_auth(app, session_factory)
     _, member_email = await create_member(session_factory, uuid.UUID(a["user"]["tenant_id"]))
     login = await api(
-        app, "POST", "/api/v1/auth/login",
+        app,
+        "POST",
+        "/api/v1/auth/login",
         json={"email": member_email, "password": "memberPass123"},
     )
     member_token = login.json()["access_token"]
