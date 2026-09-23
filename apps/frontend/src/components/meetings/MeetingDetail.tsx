@@ -6,9 +6,11 @@ import {
   cancelMeeting,
   getMeeting,
   listParticipants,
+  listRecordings,
   removeParticipant,
+  uploadRecording,
 } from "../../lib/meetings";
-import type { Meeting, Participant } from "../../lib/meetings";
+import type { Meeting, Participant, Recording } from "../../lib/meetings";
 import { getAccessToken } from "../../lib/session";
 
 interface Props {
@@ -20,17 +22,33 @@ export function MeetingDetail({ token, meetingId }: Props) {
   const resolvedToken = token ?? getAccessToken() ?? "";
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [recordings, setRecordings] = useState<Recording[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [cancelConfirm, setCancelConfirm] = useState(false);
 
+  const refreshRecordings = async () => {
+    try {
+      const rs = await listRecordings(resolvedToken, meetingId);
+      setRecordings(rs);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Error al cargar grabaciones");
+    }
+  };
+
   useEffect(() => {
     let live = true;
-    Promise.all([getMeeting(resolvedToken, meetingId), listParticipants(resolvedToken, meetingId)])
-      .then(([m, p]) => {
+    Promise.all([
+      getMeeting(resolvedToken, meetingId),
+      listParticipants(resolvedToken, meetingId),
+      listRecordings(resolvedToken, meetingId).catch(() => [] as Recording[]),
+    ])
+      .then(([m, p, rs]) => {
         if (!live) return;
         setMeeting(m);
         setParticipants(p.items);
+        setRecordings(rs);
       })
       .catch((e: unknown) => {
         if (live) setError(e instanceof Error ? e.message : "Error");
@@ -39,6 +57,19 @@ export function MeetingDetail({ token, meetingId }: Props) {
       live = false;
     };
   }, [resolvedToken, meetingId]);
+
+  async function onUpload(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      await uploadRecording(resolvedToken, meetingId, file);
+      await refreshRecordings();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Error al subir");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function onAddEmail(e: React.FormEvent) {
     e.preventDefault();

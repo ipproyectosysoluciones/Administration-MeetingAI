@@ -1,6 +1,6 @@
 // Meetings API client (TASK-230..232).
 
-import { ApiError, type TokenResponse } from "../lib/api";
+import { ApiError } from "../lib/api";
 export { ApiError };
 
 const API_BASE = import.meta.env.PUBLIC_API_BASE ?? "/api/v1";
@@ -148,4 +148,50 @@ export async function removeParticipant(
   await request(`/meetings/${meetingId}/participants/${participantId}`, token, {
     method: "DELETE",
   });
+}
+
+export interface Recording {
+  id: string;
+  meeting_id: string;
+  tenant_id: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  sha256: string;
+  status: string;
+  duration_seconds: number | null;
+  uploaded_by: string;
+  created_at: string;
+}
+
+export async function listRecordings(token: string, meetingId: string): Promise<Recording[]> {
+  return request<Recording[]>(`/meetings/${meetingId}/recordings`, token);
+}
+
+export async function uploadRecording(
+  token: string,
+  meetingId: string,
+  file: File,
+): Promise<Recording> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const resp = await fetch(`${API_BASE}/meetings/${meetingId}/recordings`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
+    body: fd,
+  });
+  if (!resp.ok) {
+    let code = "UPLOAD_FAILED";
+    let message = `HTTP ${resp.status}`;
+    try {
+      const body = (await resp.json()) as { code?: string; message?: string };
+      if (body.code) code = body.code;
+      if (body.message) message = body.message;
+    } catch {
+      /* noop */
+    }
+    throw new ApiError(resp.status, code, message);
+  }
+  return (await resp.json()) as Recording;
 }
