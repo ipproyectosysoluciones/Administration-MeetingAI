@@ -28,8 +28,7 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/) (SemVer) f
 - `main` only contains released, stable code. Releases are cut from `main` only.
 - **`rc` (or `rc/x.y.z`) branches host release‑candidate tags `vMAJOR.MINOR.PATCH-rc.N`** and are used to stabilize code before a stable release.
 - **`release` (or `release/x.y.z`) branches stabilize code before promoting to `main`**. Only code that has been verified on `release` may be merged into `main`.
-- Pre‑release tags (`-rc.N`) are cut **only** from `rc` or `release` branches, never from `main` or `develop`.
-- Stable releases (no `-rc.`) are cut **only** from `main`.
+- Pre‑release tags (`-rc.N`) may be cut from `rc`, `rc/*`, `release`, or `release/*` branches; stable tags only from `main`.
 
 ## Release process
 

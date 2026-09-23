@@ -87,6 +87,9 @@ async def transcription_worker_loop(session_factory, job_service, provider, stor
             await job_service.mark_done(job)
             # Audit: transcription.completed
         except Exception as e:
+            # Transient errors (network, provider busy, OOM retryable, Whisper timeout) → job stays claimable and is retried with backoff up to max_attempts
+            # Permanent errors (corrupt audio, unsupported codec, missing recording row) → job marked failed, transcription row marked failed, no automatic retry (manual re-enqueue via transcription.retry permission)
+            # Worker must never swallow exceptions silently — unexpected exceptions are logged with job id and treated as transient until attempts exhaust
             await job_service.fail(job)
             # Audit: transcription.failed
 

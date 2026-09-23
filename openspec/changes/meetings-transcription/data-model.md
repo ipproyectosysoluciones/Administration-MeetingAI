@@ -22,7 +22,7 @@ transcripts (
   model_used        text NOT NULL DEFAULT 'small'
   version           integer NOT NULL DEFAULT 1
   status            text NOT NULL DEFAULT 'draft'
-                    CHECK (status IN ('draft', 'final'))
+                    CHECK (status IN ('draft', 'final', 'failed'))
   error             text NULL
   created_by_job_id uuid REFERENCES jobs(id) ON DELETE SET NULL
   created_at        timestamptz NOT NULL DEFAULT now()
@@ -55,6 +55,8 @@ _transcription_role_matrix:
 - `transcripts.tenant_id` copies `recordings.tenant_id` (no cross-tenant reads possible).
 - Recordings carry `tenant_id` from the parent meeting; transcripts inherit it.
 - The unique index `ux_transcripts_recording_draft` enforces idempotency at DB level: only one draft transcript per recording.
+
+> **Intended semantics**: the partial unique index `WHERE status = 'draft'` guarantees **at most one ACTIVE draft per recording**; once a draft transitions to `final` or `failed`, creating a new draft (retry/new version) is allowed BY DESIGN, and worker idempotency comes from the "skip if an active draft exists" claim rule, not from forbidding new drafts forever.
 
 > **Decision note**: The `board_member` role was pending decision in this change. Per the spec resolution below, board_member receives **no** transcription permissions (empty set), consistent with the principle that board members should not have STT access in v1. This is not a residual from an earlier board-member-permissions change — it is an explicit resolution.
 
