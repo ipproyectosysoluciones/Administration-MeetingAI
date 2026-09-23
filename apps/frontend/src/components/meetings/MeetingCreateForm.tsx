@@ -109,3 +109,5 @@ export function MeetingCreateForm({ token, onCreated }: Props) {
     </form>
   );
 }
+
+export default MeetingCreateForm;
