@@ -1,0 +1,26 @@
+# ReunionAI transcription worker — same backend image content + STT extras.
+# faster-whisper (ctranslate2) makes this image heavier on purpose; the API
+# image stays lean because providers are pluggable and lazy-imported.
+FROM python:3.12-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /srv/backend
+
+COPY pyproject.toml ./
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./
+
+RUN pip install --upgrade pip && pip install ".[stt]"
+
+# Pre-download the model at build time: first job must not depend on the
+# container having network access (R3-ModelDownloadNoCacheStrategy).
+ARG WHISPER_MODEL=small
+ENV WHISPER_MODEL=${WHISPER_MODEL}
+RUN python -c "from faster_whisper import WhisperModel; WhisperModel('$WHISPER_MODEL' or 'small')"
+
+# No HTTP port: the worker only consumes the jobs queue.
+CMD ["python", "-m", "app.modules.transcription.worker"]

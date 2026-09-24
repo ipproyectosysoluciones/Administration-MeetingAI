@@ -167,6 +167,7 @@ CI: `.github/workflows/ci.yml` corre lint + typecheck + tests + build en cada pu
 ### Core capabilities
 
 - **Speech-to-Text:** meeting recordings → transcripts (Whisper / faster-whisper).
+- **Pipeline de transcripción (MVP):** subir una grabación encola `process_recording`; el servicio `worker` de docker-compose la procesa con faster-whisper y deja un draft revisable (endpoints read-only `GET /api/v1/transcriptions/{id}` y `GET /api/v1/recordings/{id}/transcriptions`). Variables: `WHISPER_MODEL` (default `small`), `WHISPER_DEVICE` (default `auto`), `STORAGE_BASE`, `TRANSCRIBE_TIMEOUT_SECONDS`.
 - **OCR:** scanned documents and images → structured text (Tesseract + OCRmyPDF).
 - **AI-assisted minutes:** drafts with summaries, decisions, agreements, and tasks — always subject to human review and approval before publication.
 - **RBAC + MFA/2FA, full audit trail, and tenant isolation:** one tenant can never access another tenant's data.
