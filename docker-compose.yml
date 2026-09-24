@@ -27,6 +27,9 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://reunionai:reunionai@postgres:5432/reunionai
+      STORAGE_BASE: /srv/recordings
+    volumes:
+      - recordings-data:/srv/recordings
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,5 +49,24 @@ services:
       backend:
         condition: service_healthy
 
+  worker:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.worker
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://reunionai:reunionai@postgres:5432/reunionai
+      STORAGE_BASE: /srv/recordings
+      WHISPER_MODEL: small
+      WHISPER_DEVICE: auto
+    volumes:
+      - recordings-data:/srv/recordings
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
 volumes:
   postgres-data:
+  recordings-data:

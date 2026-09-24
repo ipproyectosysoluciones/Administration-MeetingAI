@@ -1,0 +1,20 @@
+# ReunionAI transcription worker — same backend image content + STT extras.
+# faster-whisper (ctranslate2) makes this image heavier on purpose; the API
+# image stays lean because providers are pluggable and lazy-imported.
+FROM python:3.12-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /srv/backend
+
+COPY pyproject.toml ./
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./
+
+RUN pip install --upgrade pip && pip install ".[stt]"
+
+# No HTTP port: the worker only consumes the jobs queue.
+CMD ["python", "-m", "app.modules.transcription.worker"]
