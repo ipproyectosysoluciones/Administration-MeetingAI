@@ -53,11 +53,14 @@ services:
     build:
       context: ./apps/backend
       dockerfile: Dockerfile.worker
+      # Bake-time model MUST match runtime WHISPER_MODEL; change triggers rebuild.
+      args:
+        WHISPER_MODEL: ${WHISPER_MODEL:-small}
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://reunionai:reunionai@postgres:5432/reunionai
       STORAGE_BASE: /srv/recordings
-      WHISPER_MODEL: small
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
       WHISPER_DEVICE: auto
     volumes:
       - recordings-data:/srv/recordings
