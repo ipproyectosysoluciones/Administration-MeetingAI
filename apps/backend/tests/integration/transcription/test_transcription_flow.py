@@ -78,6 +78,7 @@ async def test_create_draft_persists_and_roundtrips(migrated_engine: AsyncEngine
             job_id=None,
             model_used="small",
         )
+        await session.commit()
         assert t.id is not None
         assert t.status == "draft"
         assert t.segments == [{"start": 0.0, "end": 1.5, "text": "Hola", "speaker": None}]
@@ -106,6 +107,7 @@ async def test_partial_unique_index_blocks_second_active_draft(
             job_id=None,
             model_used="small",
         )
+        await session.commit()
 
     async with factory() as session:
         with pytest.raises(IntegrityError):
@@ -133,6 +135,7 @@ async def test_new_draft_allowed_after_first_is_final(migrated_engine: AsyncEngi
             job_id=None,
             model_used="small",
         )
+        await session.commit()
         t.status = "final"
         await session.commit()
 
@@ -144,5 +147,6 @@ async def test_new_draft_allowed_after_first_is_final(migrated_engine: AsyncEngi
             job_id=None,
             model_used="small",
         )
+        await session.commit()
         assert t2.id != t.id
         assert t2.status == "draft"

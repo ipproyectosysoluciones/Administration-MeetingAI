@@ -131,6 +131,7 @@ async def run_once(
                 job_id=job.id,
                 model_used=model_used,
             )
+            await session.commit()
             await _complete_job(session_factory, job_service, job, worker_id)
             logger.info("job %s: transcription completed for recording %s", job.id, recording.id)
             return True
@@ -150,6 +151,7 @@ async def run_once(
                 error=str(exc),
                 model_used=model_used,
             )
+            await session.commit()
             await _fail_job(session_factory, job_service, job, worker_id)
             return True
         except Exception:

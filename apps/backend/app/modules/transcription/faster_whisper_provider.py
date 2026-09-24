@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import math
 import os
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,12 @@ from app.modules.transcription.provider import (
 )
 
 ModelLoader = Callable[..., Any]
+
+# Messages emitted by ctranslate2/PyAV for undecodable or unsupported audio.
+_PERMANENT_VALUEERROR_MARKERS = re.compile(
+    r"(codec|decode|demux|format|header|invalid data|unsupported|corrupt)",
+    re.IGNORECASE,
+)
 
 
 class FasterWhisperProvider(SpeechToTextProvider):
@@ -71,11 +78,12 @@ class FasterWhisperProvider(SpeechToTextProvider):
         except PermanentTranscriptionError:
             raise
         except ValueError as exc:
-            # faster-whisper/ct2 signal undecodable frames or unsupported format
-            # with ValueError on the transcribe call itself; argument-validation
-            # ValueErrors raised before the engine runs would still surface here,
-            # so re-raise only engine-shaped messages and let the rest bubble up
-            # as (retryable) unexpected errors in the worker.
+            # Permanent ONLY for engine-shaped decode/format failures; any other
+            # ValueError (e.g. an argument bug in this adapter) must bubble up so
+            # the worker classifies it as transient/unexpected instead of
+            # silently marking the transcript failed.
+            if not _PERMANENT_VALUEERROR_MARKERS.search(str(exc)):
+                raise
             raise PermanentTranscriptionError(str(exc)) from exc
 
         segments: list[Segment] = []

@@ -66,7 +66,7 @@ async def test_create_draft_maps_all_fields() -> None:
 
     assert t in session.added
     assert session.flushed == 1
-    assert session.committed == 1
+    assert session.flushed == 1
     assert t.recording_id == recording.id
     assert t.meeting_id == recording.meeting_id
     assert t.tenant_id == recording.tenant_id
@@ -118,4 +118,4 @@ async def test_mark_failed_persists_failed_transcript() -> None:
     assert t.error == "corrupt audio"
     assert t.text == ""
     assert t.segments == []
-    assert session.committed == 1
+    assert session.flushed == 1

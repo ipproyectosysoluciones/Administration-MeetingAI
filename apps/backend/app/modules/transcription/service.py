@@ -36,6 +36,7 @@ class TranscriptionService:
         job_id: uuid.UUID | None,
         model_used: str,
     ) -> Transcript:
+        """Insert the draft row (flush only); the caller owns commit."""
         t = Transcript(
             recording_id=recording.id,
             meeting_id=recording.meeting_id,
@@ -57,7 +58,6 @@ class TranscriptionService:
         )
         session.add(t)
         await session.flush()
-        await session.commit()
         return t
 
     async def mark_failed(
@@ -69,7 +69,7 @@ class TranscriptionService:
         error: str,
         model_used: str,
     ) -> Transcript:
-        """Persist a failed transcript row (permanent errors only; see worker)."""
+        """Insert a failed transcript row (flush only); the caller owns commit."""
         t = Transcript(
             recording_id=recording.id,
             meeting_id=recording.meeting_id,
@@ -86,5 +86,4 @@ class TranscriptionService:
         )
         session.add(t)
         await session.flush()
-        await session.commit()
         return t
