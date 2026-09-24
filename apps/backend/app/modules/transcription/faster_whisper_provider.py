@@ -70,7 +70,12 @@ class FasterWhisperProvider(SpeechToTextProvider):
             segments_iter = list(segments_iter)
         except PermanentTranscriptionError:
             raise
-        except ValueError as exc:  # engine-level decode/format errors are permanent
+        except ValueError as exc:
+            # faster-whisper/ct2 signal undecodable frames or unsupported format
+            # with ValueError on the transcribe call itself; argument-validation
+            # ValueErrors raised before the engine runs would still surface here,
+            # so re-raise only engine-shaped messages and let the rest bubble up
+            # as (retryable) unexpected errors in the worker.
             raise PermanentTranscriptionError(str(exc)) from exc
 
         segments: list[Segment] = []

@@ -35,6 +35,8 @@ from app.modules.transcription.service import TranscriptionService
 logger = logging.getLogger(__name__)
 
 JOB_TYPE = "process_recording"
+# Hard bound for a single transcription call; overridable for large models.
+TRANSCRIBE_TIMEOUT_SECONDS = float(os.environ.get("TRANSCRIBE_TIMEOUT_SECONDS", "1800"))
 
 
 class RecordingMissingError(Exception):
@@ -42,23 +44,28 @@ class RecordingMissingError(Exception):
 
 
 async def _audio_to_tempfile(storage: StorageProvider, key: str) -> Path:
-    """Copy the stored blob into a local temp file (providers may stream)."""
+    """Copy the stored blob into a local temp file (providers may stream).
+
+    On ANY failure the fd, the read handle, and the temp file are all released.
+    """
     fd, tmp_name = tempfile.mkstemp(suffix=Path(key).suffix or ".bin")
+    handle = None
     try:
         handle = await storage.open_read(key)
-    except BaseException:
-        os.close(fd)
-        os.unlink(tmp_name)
-        raise
-    try:
         with os.fdopen(fd, "wb") as out:
             while True:
                 chunk = handle.read(1024 * 1024)
                 if not chunk:
                     break
                 out.write(chunk)
-    finally:
-        handle.close()
+    except BaseException:
+        if handle is not None:
+            handle.close()
+        else:
+            os.close(fd)
+        os.unlink(tmp_name)
+        raise
+    handle.close()
     return Path(tmp_name)
 
 
@@ -84,9 +91,17 @@ async def run_once(
     recording_id_raw = job.payload.get("recording_id")
     model_used = getattr(provider, "model_name", "unknown")
 
+    try:
+        recording_pk = uuid.UUID(str(recording_id_raw))
+    except (TypeError, ValueError) as exc:
+        # Permanent data corruption in the job payload; never retry.
+        logger.error("job %s: invalid recording_id payload %r: %s", job.id, recording_id_raw, exc)
+        await _fail_job(session_factory, job_service, job, worker_id)
+        return True
+
     # Phase 2: process in a fresh session, isolated from claim state
     async with session_factory() as session:
-        recording = await session.get(Recording, uuid.UUID(str(recording_id_raw)))
+        recording = await session.get(Recording, recording_pk)
         try:
             if recording is None:
                 raise RecordingMissingError(f"recording not found: {recording_id_raw}")
@@ -103,7 +118,9 @@ async def run_once(
 
             audio_path = await _audio_to_tempfile(storage, recording.storage_path)
             try:
-                result = await provider.transcribe(audio_path)
+                result = await asyncio.wait_for(
+                    provider.transcribe(audio_path), timeout=TRANSCRIBE_TIMEOUT_SECONDS
+                )
             finally:
                 audio_path.unlink(missing_ok=True)
 
