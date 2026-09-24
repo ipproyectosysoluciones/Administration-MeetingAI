@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import APIError
 from app.modules.audit.service import AuditService
+from app.modules.jobs.service import JobService
 from app.modules.meetings.models import Meeting
 from app.modules.recordings.models import Recording
 from app.modules.recordings.providers import StorageProvider, make_recording_key
@@ -34,7 +35,8 @@ _CHUNK = 1024 * 1024  # 1 MiB
 
 
 class RecordingService:
-    def __init__(self, storage: StorageProvider) -> None:
+    def __init__(self, storage: StorageProvider, jobs: JobService | None = None) -> None:
+        self._jobs = jobs
         self._storage = storage
 
     # -- tenant-scoped lookups --------------------------------------------------
@@ -141,6 +143,19 @@ class RecordingService:
         )
         session.add(recording)
         await session.flush()
+
+        # Enqueue transcription processing (TASK-303). Idempotent uploads
+        # (existing row, 200 path) never re-enqueue.
+        if self._jobs is not None:
+            await self._jobs.enqueue(
+                session,
+                type="process_recording",
+                payload={
+                    "recording_id": str(recording.id),
+                    "meeting_id": str(meeting_id),
+                    "tenant_id": str(tenant_id),
+                },
+            )
 
         await AuditService.record(
             session,
