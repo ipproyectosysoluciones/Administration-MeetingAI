@@ -61,6 +61,19 @@ services:
       WHISPER_DEVICE: auto
     volumes:
       - recordings-data:/srv/recordings
+    restart: unless-stopped
+    healthcheck:
+   # El worker es un loop sobre la cola; el ping es el proceso vivo.
+      test: ["CMD-SHELL", "pgrep -f 'app.modules.transcription.worker' >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
     depends_on:
       postgres:
         condition: service_healthy
