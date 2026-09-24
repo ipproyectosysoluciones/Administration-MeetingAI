@@ -14,7 +14,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from app.modules.transcription.provider import Segment, SpeechToTextProvider, TranscriptionResult
+from app.modules.transcription.provider import (
+    PermanentTranscriptionError,
+    Segment,
+    SpeechToTextProvider,
+    TranscriptionResult,
+)
 
 ModelLoader = Callable[..., Any]
 
@@ -59,7 +64,14 @@ class FasterWhisperProvider(SpeechToTextProvider):
 
     def _transcribe_sync(self, path: Path, language: str | None) -> TranscriptionResult:
         model = self._load_model()
-        segments_iter, info = model.transcribe(str(path), language=language)
+        try:
+            segments_iter, info = model.transcribe(str(path), language=language)
+            # consume lazily so decode errors surface here, not in callers
+            segments_iter = list(segments_iter)
+        except PermanentTranscriptionError:
+            raise
+        except ValueError as exc:  # engine-level decode/format errors are permanent
+            raise PermanentTranscriptionError(str(exc)) from exc
 
         segments: list[Segment] = []
         logprobs: list[float] = []

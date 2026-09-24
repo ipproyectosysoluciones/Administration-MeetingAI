@@ -30,6 +30,10 @@ class TranscriptionResult:
     language: str | None = None
 
 
+class PermanentTranscriptionError(Exception):
+    """Permanent STT failure (corrupt audio, unsupported codec) — never retried."""
+
+
 class SpeechToTextProvider(Protocol):
     """Async STT port: implementations must offload blocking work to threads."""
 
