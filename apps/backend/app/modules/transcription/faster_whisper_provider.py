@@ -10,13 +10,25 @@ from __future__ import annotations
 import asyncio
 import math
 import os
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from app.modules.transcription.provider import Segment, SpeechToTextProvider, TranscriptionResult
+from app.modules.transcription.provider import (
+    PermanentTranscriptionError,
+    Segment,
+    SpeechToTextProvider,
+    TranscriptionResult,
+)
 
 ModelLoader = Callable[..., Any]
+
+# Messages emitted by ctranslate2/PyAV for undecodable or unsupported audio.
+_PERMANENT_VALUEERROR_MARKERS = re.compile(
+    r"(codec|decode|demux|format|header|invalid data|unsupported|corrupt)",
+    re.IGNORECASE,
+)
 
 
 class FasterWhisperProvider(SpeechToTextProvider):
@@ -59,7 +71,20 @@ class FasterWhisperProvider(SpeechToTextProvider):
 
     def _transcribe_sync(self, path: Path, language: str | None) -> TranscriptionResult:
         model = self._load_model()
-        segments_iter, info = model.transcribe(str(path), language=language)
+        try:
+            segments_iter, info = model.transcribe(str(path), language=language)
+            # consume lazily so decode errors surface here, not in callers
+            segments_iter = list(segments_iter)
+        except PermanentTranscriptionError:
+            raise
+        except ValueError as exc:
+            # Permanent ONLY for engine-shaped decode/format failures; any other
+            # ValueError (e.g. an argument bug in this adapter) must bubble up so
+            # the worker classifies it as transient/unexpected instead of
+            # silently marking the transcript failed.
+            if not _PERMANENT_VALUEERROR_MARKERS.search(str(exc)):
+                raise
+            raise PermanentTranscriptionError(str(exc)) from exc
 
         segments: list[Segment] = []
         logprobs: list[float] = []
