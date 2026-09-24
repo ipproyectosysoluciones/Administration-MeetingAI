@@ -46,13 +46,26 @@ def parse_backend_versions():
         print(f"error: cannot parse {BACKEND_PYPROJECT}: missing key {e}", file=sys.stderr)
         sys.exit(1)
 
+    SPEC_RE = re.compile(r"^fastapi(?:\[[^\]]*\])?\s*(?:[><=!~]=?\s*)?(\d+\.\d+(?:\.\d+)?)?\s*$")
     fastapi_min = None
     for dep in project.get("dependencies", []):
         if dep.startswith("fastapi"):
-            m = re.match(r"fastapi[>=<]+(\d+\.\d+(?:\.\d+)?)", dep)
-            if m:
+            m = SPEC_RE.match(dep)
+            if m and m.group(1):
                 fastapi_min = m.group(1)
-            break
+                break
+            print(
+                f"error: cannot determine fastapi version from dependency '{dep}' "
+                f"in {BACKEND_PYPROJECT}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    if fastapi_min is None:
+        print(
+            f"error: no fastapi dependency found in {BACKEND_PYPROJECT}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     return version, requires_python, fastapi_min
 
@@ -85,10 +98,19 @@ def parse_frontend_versions():
 
     deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
 
-    astro = major(strip_prefix(deps.get("astro", "0.0.0")))
-    react = major(strip_prefix(deps.get("react", "0.0.0")))
-    typescript = major_minor(strip_prefix(deps.get("typescript", "0.0.0")))
-    tailwindcss = major_minor(strip_prefix(deps.get("tailwindcss", "0.0.0")))
+    required = ("astro", "react", "typescript", "tailwindcss")
+    for name in required:
+        if name not in deps:
+            print(
+                f"error: missing dependency '{name}' in {FRONTEND_PACKAGE_JSON}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    astro = major(strip_prefix(deps["astro"]))
+    react = major(strip_prefix(deps["react"]))
+    typescript = major_minor(strip_prefix(deps["typescript"]))
+    tailwindcss = major_minor(strip_prefix(deps["tailwindcss"]))
 
     return astro, react, typescript, tailwindcss
 
