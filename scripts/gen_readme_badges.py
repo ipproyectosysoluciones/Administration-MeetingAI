@@ -28,12 +28,23 @@ FRONTEND_PACKAGE_JSON = os.path.join(BASE_DIR, "apps", "frontend", "package.json
 
 def parse_backend_versions():
     """Read pyproject.toml and extract version, requires-python, and fastapi min version."""
-    with open(BACKEND_PYPROJECT, "rb") as f:
-        data = tomllib.load(f)
+    try:
+        with open(BACKEND_PYPROJECT, "rb") as f:
+            data = tomllib.load(f)
+    except FileNotFoundError:
+        print(f"error: cannot parse {BACKEND_PYPROJECT}: file not found", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"error: cannot parse {BACKEND_PYPROJECT}: {e}", file=sys.stderr)
+        sys.exit(1)
 
-    project = data["project"]
-    version = project["version"]
-    requires_python = project["requires-python"]
+    try:
+        project = data["project"]
+        version = project["version"]
+        requires_python = project["requires-python"]
+    except KeyError as e:
+        print(f"error: cannot parse {BACKEND_PYPROJECT}: missing key {e}", file=sys.stderr)
+        sys.exit(1)
 
     fastapi_min = None
     for dep in project.get("dependencies", []):
@@ -62,8 +73,15 @@ def major_minor(ver):
 
 def parse_frontend_versions():
     """Read package.json and extract framework versions with prefix stripping."""
-    with open(FRONTEND_PACKAGE_JSON, "r") as f:
-        data = json.load(f)
+    try:
+        with open(FRONTEND_PACKAGE_JSON, "r") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        print(f"error: cannot parse {FRONTEND_PACKAGE_JSON}: file not found", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"error: cannot parse {FRONTEND_PACKAGE_JSON}: {e}", file=sys.stderr)
+        sys.exit(1)
 
     deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
 
