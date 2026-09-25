@@ -241,3 +241,6 @@ apps/backend/data/
 
 # Local ODD task tracking
 odd/
+
+# kankaku extension runtime state
+.kankaku/
