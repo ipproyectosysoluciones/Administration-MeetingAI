@@ -4,6 +4,14 @@ on:
   push:
     tags:
       - "v*"
+  # GITHUB_TOKEN pushes don't chain tag-triggered workflows; the Release
+  # workflow dispatches this run with the concrete tag instead.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish (vX.Y.Z or vX.Y.Z-rc.N)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -30,6 +38,12 @@ jobs:
             context: ./apps/frontend
             dockerfile: Dockerfile
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          # manual dispatch: build the tagged ref, not the default branch.
+          ref: ${{ inputs.tag || github.ref_name }}
+
       # Tag must be strict semver (vMAJOR.MINOR.PATCH[-rc.N]); the glob "v*"
       # alone would also match "vendor", "version", etc.
       - name: Validate tag format
