@@ -18,3 +18,8 @@ EXPOSE 8000
 
 # Migrations are idempotent; running them on startup keeps the stack one-command.
 CMD ["sh", "-c", "alembic upgrade head && uvicorn 'app.main:create_app' --factory --host 0.0.0.0 --port 8000"]
+# OCI labels: link the GHCR package back to this repo (permissions inherit,
+# Actions workflows get automatic package access).
+LABEL org.opencontainers.image.source="https://github.com/ipproyectosysoluciones/Administration-MeetingAI"
+LABEL org.opencontainers.image.description="ReunionAI backend API — FastAPI multi-tenant platform"
+LABEL org.opencontainers.image.licenses="MIT"

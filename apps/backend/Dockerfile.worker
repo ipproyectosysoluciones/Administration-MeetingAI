@@ -24,3 +24,8 @@ RUN python -c "from faster_whisper import WhisperModel; WhisperModel('$WHISPER_M
 
 # No HTTP port: the worker only consumes the jobs queue.
 CMD ["python", "-m", "app.modules.transcription.worker"]
+# OCI labels: link the GHCR package back to this repo (permissions inherit,
+# Actions workflows get automatic package access).
+LABEL org.opencontainers.image.source="https://github.com/ipproyectosysoluciones/Administration-MeetingAI"
+LABEL org.opencontainers.image.description="ReunionAI transcription worker (faster-whisper jobs consumer)"
+LABEL org.opencontainers.image.licenses="MIT"
