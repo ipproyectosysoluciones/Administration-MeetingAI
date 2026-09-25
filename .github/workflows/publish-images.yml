@@ -30,6 +30,23 @@ jobs:
             context: ./apps/frontend
             dockerfile: Dockerfile
     steps:
+      # Tag must be strict semver (vMAJOR.MINOR.PATCH[-rc.N]); the glob "v*"
+      # alone would also match "vendor", "version", etc.
+      - name: Validate tag format
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *)
+              echo "::error ::Tag '$TAG' is not a SemVer release tag; refusing to publish"
+              exit 1
+              ;;
+          esac
+          if [[ "$TAG" == *-* && ! "$TAG" =~ -rc\.[0-9]+$ ]]; then
+            echo "::error ::Only -rc.N prerelease suffixes are publishable, got: $TAG"
+            exit 1
+          fi
+
       - name: Image coordinates
         id: vars
         env:
