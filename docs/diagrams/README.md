@@ -18,6 +18,12 @@ If a diagram changes, update the source document first and re-extract it here.
 | [agent-flow.md](agent-flow.md) | §36 | PRD → SDD → TDD → tests → RDD → reviewers → Judgment Day → fix loop → PR |
 | [agent-module-workflow.md](agent-module-workflow.md) | §37 | Per-module lifecycle from requirement to done |
 
+## Current implementation (updated 2026-09-25)
+
+| File | Source | Content |
+| --- | --- | --- |
+| [product-transcription-flow.md](product-transcription-flow.md) | PRs #66–86, meetings-transcription | Cadena MVP real: upload → queue → worker → draft → read API. **Actualizada por el RDD del 2026-09-24/25** (build-arg forwarding del worker, timeout por job, sin diarización). |
+
 ## Viewing
 
 Mermaid renders natively on GitHub and in most Markdown viewers. For local
