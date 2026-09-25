@@ -47,8 +47,11 @@ jobs:
       # Tag must be strict semver (vMAJOR.MINOR.PATCH[-rc.N]); the glob "v*"
       # alone would also match "vendor", "version", etc.
       - name: Validate tag format
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          # Manual dispatch passes the tag explicitly; push uses the ref.
+          TAG="${INPUT_TAG:-${GITHUB_REF_NAME}}"
           # Strict, anchored SemVer: vMAJOR.MINOR.PATCH with optional -rc.N suffix
           SEMVER='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.[0-9]+)?$'
           if [[ ! "$TAG" =~ $SEMVER ]]; then
