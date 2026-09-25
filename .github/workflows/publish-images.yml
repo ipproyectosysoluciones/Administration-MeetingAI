@@ -35,15 +35,10 @@ jobs:
       - name: Validate tag format
         run: |
           TAG="${GITHUB_REF_NAME}"
-          case "$TAG" in
-            v[0-9]*.[0-9]*.[0-9]*) ;;
-            *)
-              echo "::error ::Tag '$TAG' is not a SemVer release tag; refusing to publish"  # yamllint disable-line rule:line-length
-              exit 1
-              ;;
-          esac
-          if [[ "$TAG" == *-* && ! "$TAG" =~ -rc\.[0-9]+$ ]]; then
-            echo "::error ::Only -rc.N prerelease suffixes are publishable, got: $TAG"  # yamllint disable-line rule:line-length
+          # Strict, anchored SemVer: vMAJOR.MINOR.PATCH with optional -rc.N suffix
+          SEMVER='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.[0-9]+)?$'
+          if [[ ! "$TAG" =~ $SEMVER ]]; then
+            echo "::error ::Tag '$TAG' is not a strict SemVer release tag (vX.Y.Z[-rc.N]); refusing to publish"  # yamllint disable-line rule:line-length
             exit 1
           fi
 
