@@ -1,7 +1,4 @@
-"""migration 0009: minutes table + minutes.* permissions (MIN-100).
-
-Revises: 0008.
-"""
+"""migration 0009: minutes table + minutes.* permissions (MIN-100)."""
 
 from __future__ import annotations
 
@@ -18,16 +15,16 @@ depends_on = None
 _UUID = postgresql.UUID(as_uuid=True)
 _NOW = sa.text("now()")
 
-_MINUTES_PERMISSIONS = (
+_MINUTES_PERMISSIONS = [
     ("minutes.read", "minutes", "read", "Read minutes"),
     ("minutes.write", "minutes", "write", "Create/review minutes"),
     ("minutes.approve", "minutes", "approve", "Approve minutes"),
     ("minutes.publish", "minutes", "publish", "Publish minutes"),
-)
+]
 
-_MINUTES_ROLE_MATRIX = {
-    "super_admin": [p[0] for p in _MINUTES_PERMISSIONS],
-    "org_admin": [p[0] for p in _MINUTES_PERMISSIONS],
+_ROLE_MATRIX = {
+    "super_admin": ["minutes.read", "minutes.write", "minutes.approve", "minutes.publish"],
+    "org_admin": ["minutes.read", "minutes.write", "minutes.approve", "minutes.publish"],
     "secretary": ["minutes.read", "minutes.write"],
     "president": ["minutes.read"],
     "board_member": [],
@@ -47,7 +44,7 @@ def _seed_permissions() -> None:
 
 
 def _seed_role_permissions() -> None:
-    for role_name, perms in _MINUTES_ROLE_MATRIX.items():
+    for role_name, perms in _ROLE_MATRIX.items():
         if not perms:
             continue
         names = ", ".join(f"'{p}'" for p in perms)
@@ -63,13 +60,27 @@ def _seed_role_permissions() -> None:
 def upgrade() -> None:
     op.create_table(
         "minutes",
-        sa.Column("id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("meeting_id", _UUID, sa.ForeignKey("meetings.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("tenant_id", _UUID, sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")
+        ),
+        sa.Column(
+            "meeting_id",
+            _UUID,
+            sa.ForeignKey("meetings.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "tenant_id",
+            _UUID,
+            sa.ForeignKey("organizations.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("title", sa.String(200), nullable=False),
         sa.Column("content", sa.Text(), nullable=False, server_default=""),
-        sa.Column("status", sa.String(16), nullable=False, server_default="draft"),
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
+        sa.Column(
+            "status", sa.String(16), nullable=False, server_default="draft"
+        ),
         sa.Column("created_by", _UUID, sa.ForeignKey("users.id"), nullable=False),
         sa.Column("reviewed_by", _UUID, sa.ForeignKey("users.id"), nullable=True),
         sa.Column("reviewed_at", postgresql.TIMESTAMP(timezone=True)),
@@ -83,8 +94,18 @@ def upgrade() -> None:
         sa.Column("ai_provider", sa.Text(), nullable=True),
         sa.Column("ai_model", sa.Text(), nullable=True),
         sa.Column("ai_request_id", sa.Text(), nullable=True),
-        sa.Column("created_at", postgresql.TIMESTAMP(timezone=True), server_default=_NOW, nullable=False),
-        sa.Column("updated_at", postgresql.TIMESTAMP(timezone=True), server_default=_NOW, nullable=False),
+        sa.Column(
+            "created_at",
+            postgresql.TIMESTAMP(timezone=True),
+            server_default=_NOW,
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            postgresql.TIMESTAMP(timezone=True),
+            server_default=_NOW,
+            nullable=False,
+        ),
         sa.CheckConstraint(
             "status IN ('draft','review','approved','published','archived')",
             name="ck_minutes_status",
