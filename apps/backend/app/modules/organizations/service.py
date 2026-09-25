@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func, select, update
-from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import APIError
@@ -30,8 +30,6 @@ from app.modules.organizations.schemas import (
     PropertyUpdateRequest,
 )
 from app.modules.users.models import User
-
-MembershipRow = Row[tuple[Membership, str, str | None]]
 
 
 def _to_response(org: Organization) -> OrganizationResponse:
@@ -419,7 +417,7 @@ class OrganizationService:
 
     # -- helpers --------------------------------------------------------------
 
-    def _row_to_membership(self, row: MembershipRow) -> MembershipResponse:
+    def _row_to_membership(self, row: Any) -> MembershipResponse:
         membership, email, full_name = row[0], row[1], row[2]
         return _to_membership(membership, email, full_name)
 
@@ -439,7 +437,7 @@ class OrganizationService:
 
     async def _get_membership_row(
         self, session: AsyncSession, tenant_id: uuid.UUID, membership_id: uuid.UUID
-    ) -> MembershipRow:
+    ) -> Any:
         row = (
             await session.execute(
                 select(Membership, User.email, User.full_name)
