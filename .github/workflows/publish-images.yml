@@ -1,0 +1,97 @@
+name: Publish Images
+
+on:
+  push:
+    tags:
+      - "v*"
+  # GITHUB_TOKEN pushes don't chain tag-triggered workflows; the Release
+  # workflow dispatches this run with the concrete tag instead.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish (vX.Y.Z or vX.Y.Z-rc.N)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: ipproyectosysoluciones
+  REPO: administration-meetingai
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - name: backend
+            context: ./apps/backend
+            dockerfile: Dockerfile
+          - name: worker
+            context: ./apps/backend
+            dockerfile: Dockerfile.worker
+          - name: frontend
+            context: ./apps/frontend
+            dockerfile: Dockerfile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          # manual dispatch: build the tagged ref, not the default branch.
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      # Tag must be strict semver (vMAJOR.MINOR.PATCH[-rc.N]); the glob "v*"
+      # alone would also match "vendor", "version", etc.
+      - name: Validate tag format
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # Strict, anchored SemVer: vMAJOR.MINOR.PATCH with optional -rc.N suffix
+          SEMVER='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.[0-9]+)?$'
+          if [[ ! "$TAG" =~ $SEMVER ]]; then
+            echo "::error ::Tag '$TAG' is not a strict SemVer release tag (vX.Y.Z[-rc.N]); refusing to publish"  # yamllint disable-line rule:line-length
+            exit 1
+          fi
+
+      - name: Image coordinates
+        id: vars
+        env:
+          IMAGE_NAME: ${{ matrix.image.name }}
+          IMAGE_CONTEXT: ${{ matrix.image.context }}
+        run: |
+          echo "FULL_IMAGE=$REGISTRY/$NAMESPACE/$REPO-$IMAGE_NAME" \
+            >> "$GITHUB_OUTPUT"
+          echo "CTX=$IMAGE_CONTEXT" >> "$GITHUB_OUTPUT"
+          echo "DF=$IMAGE_CONTEXT/${{ matrix.image.dockerfile }}" \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Metadata (version tags)
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+        with:
+          images: ${{ steps.vars.outputs.FULL_IMAGE }}
+          # v0.1.0-rc.1 -> "v0.1.0-rc.1" only; stable (v1.2.3) adds "latest"
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-rc.') }}  # yamllint disable-line rule:line-length
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # yamllint disable-line rule:line-length
+
+      - name: Log in to GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          echo "$GH_TOKEN" \
+            | docker login ghcr.io -u "$ACTOR" --password-stdin
+
+      - name: Build and push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: ${{ steps.vars.outputs.CTX }}
+          file: ${{ steps.vars.outputs.DF }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}

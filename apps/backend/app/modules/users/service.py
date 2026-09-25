@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func, or_, select, update
-from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import APIError
@@ -29,9 +29,6 @@ from app.modules.users.schemas import (
 )
 
 _MIN_PASSWORD_LENGTH = 8
-
-
-UserRow = Row[tuple[User, str]]
 
 
 def _to_view(user: User, role: str) -> UserView:
@@ -229,7 +226,7 @@ class UserService:
 
     # -- helpers --------------------------------------------------------------
 
-    def _row_to_view(self, row: UserRow) -> UserView:
+    def _row_to_view(self, row: Any) -> UserView:
         user, role = row[0], row[1]
         return _to_view(user, role)
 
@@ -252,7 +249,7 @@ class UserService:
 
     async def _user_in_tenant(
         self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID
-    ) -> UserRow | None:
+    ) -> Any:
         return (
             await session.execute(
                 select(User, Membership.role)

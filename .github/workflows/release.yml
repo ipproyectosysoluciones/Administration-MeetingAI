@@ -1,0 +1,183 @@
+# yamllint disable rule:line-length
+# (release/CHANGELOG shell blocks can't wrap mid-command without breaking syntax)
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Bump type: patch, minor, major, or rc'
+        required: true
+        default: 'rc'
+        type: choice
+        options:
+          - rc
+          - patch
+          - minor
+          - major
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag and release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute next version
+        id: version
+        run: |
+          set -euo pipefail
+          LATEST=$(git tag -l 'v*' --sort=-version:refname | head -1 || true)
+          if [ -z "$LATEST" ]; then LATEST='v0.0.0'; fi
+          if ! echo "$LATEST" | grep -qE '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(.-rc.\d+)?$'; then
+            echo "::error ::Latest tag '$LATEST' is not a valid SemVer vX.Y.Z(-rc.N) tag"
+            exit 1
+          fi
+          BASE="${LATEST#v}"
+          BASE="${BASE%%-*}"
+          RCN=$(echo "$LATEST" | sed -n 's/.*-rc\.\([0-9]*\)$/\1/p' || true)
+          MAJ=$(echo "$BASE" | awk -F. '{print $1}')
+          MIN=$(echo "$BASE" | awk -F. '{print $2}')
+          PCH=$(echo "$BASE" | awk -F. '{print $3}')
+          BUMP="${{ inputs.bump }}"
+          case "$BUMP" in
+            patch) NEXT="$MAJ.$MIN.$((PCH+1))" ;;
+            minor) NEXT="$MAJ.$((MIN+1)).0" ;;
+            major) NEXT="$((MAJ+1)).0.0" ;;
+            rc)
+              if [ -n "$RCN" ]; then
+                NEXT="$BASE-rc.$((RCN+1))"
+              elif [ "$LATEST" = "v0.0.0" ]; then
+                NEXT="0.1.0-rc.1"
+              else
+                NEXT="$MAJ.$MIN.$((PCH+1))-rc.1"
+              fi
+              ;;
+          esac
+          echo "latest_tag=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "next_version=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "tag=v$NEXT" >> "$GITHUB_OUTPUT"
+
+      - name: Guardrails (branch vs tag kind)
+        run: |
+          set -euo pipefail
+          BRANCH="${{ github.ref_name }}"
+          NEXT="${{ steps.version.outputs.next_version }}"
+          case "$NEXT" in
+            *-rc.*)
+              case "$BRANCH" in
+                rc|rc/*|release|release/*) ;;
+                *) echo "::error ::Pre-release (-rc.N) tags may only be cut from rc or release branches. Current: $BRANCH"; exit 1 ;;
+              esac
+              ;;
+            *)
+              if [ "$BRANCH" != "main" ]; then
+                echo "::error ::Stable releases may only be cut from main. Current: $BRANCH"
+                exit 1
+              fi
+              ;;
+          esac
+          echo "Branch $BRANCH is allowed for tag v$NEXT"
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          set -euo pipefail
+          LATEST="${{ steps.version.outputs.latest_tag }}"
+          RANGE=""
+          if [ "$LATEST" != "v0.0.0" ] && git rev-parse -q --verify "refs/tags/$LATEST" >/dev/null; then
+            RANGE="$LATEST..HEAD"
+          fi
+          NOTES=/tmp/notes.md
+          : > "$NOTES"
+          # Full message (%s%n%b) is scanned so BREAKING CHANGE footers are caught.
+          FULL=$(git log $RANGE --pretty=format:'%s%n%b' || true)
+          SUBJECTS=$(git log $RANGE --pretty=format:'%s' || true)
+          add_section() {
+            local title="$1"; local items="$2"
+            if [ -n "$items" ]; then
+              { echo "### $title"; echo; echo "$items" | sed 's/^/- /'; echo; } >> "$NOTES"
+            fi
+          }
+          BREAKING=$(echo "$FULL" | grep -E 'BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:' | grep -E '^[a-z]+(\([^)]*\))?!?:' || true)
+          FEAT=$(echo "$SUBJECTS" | grep -E '^feat(\(|:|\!)' | grep -vE '^feat!:' || true)
+          FIX=$(echo "$SUBJECTS" | grep -E '^fix(\(|:)' || true)
+          OTHER=$(echo "$SUBJECTS" | grep -vE '^(feat|fix)(\(|\!|:)' | grep -vE 'BREAKING CHANGE' || true)
+          add_section "Breaking Changes" "$BREAKING"
+          add_section "Features" "$FEAT"
+          add_section "Fixes" "$FIX"
+          add_section "Other" "$OTHER"
+          if [ ! -s "$NOTES" ]; then echo "No notable changes since $LATEST." > "$NOTES"; fi
+          echo "notes_file=$NOTES" >> "$GITHUB_OUTPUT"
+          cat "$NOTES"
+
+      - name: Prepend CHANGELOG section and push
+        run: |
+          set -euo pipefail
+          NEXT="${{ steps.version.outputs.next_version }}"
+          TODAY=$(date +%F)
+          HEADER="## [$NEXT] - $TODAY"
+          if [ ! -f CHANGELOG.md ]; then
+            printf '# Changelog\n\nAll notable changes to this project are documented here.\nThe format is based on Keep a Changelog, and this project adheres to Semantic Versioning.\n' > CHANGELOG.md
+          fi
+          TMP=$(mktemp)
+          { echo; echo "$HEADER"; echo; cat "${{ steps.notes.outputs.notes_file }}"; } > "$TMP"
+          cat CHANGELOG.md >> "$TMP"
+          mv "$TMP" CHANGELOG.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python scripts/gen_readme_badges.py
+          git add CHANGELOG.md README.md
+          git commit -m "chore(release): $NEXT [skip ci]"
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: Create and push annotated tag
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error ::Tag $TAG already exists; bump again or pick a different version"
+            exit 1
+          fi
+          TAG_EXISTS=$(git ls-remote --tags origin "refs/tags/$TAG" | grep -c . || true)
+          if [ "$TAG_EXISTS" -gt 0 ]; then
+            echo "::error ::Tag $TAG already exists; bump again or pick a different version"
+            exit 1
+          fi
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          NEXT="${{ steps.version.outputs.next_version }}"
+          FLAGS=""
+          case "$NEXT" in
+            *-rc.*) FLAGS="--prerelease" ;;
+          esac
+          # shellcheck disable=SC2086
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes-file "${{ steps.notes.outputs.notes_file }}" \
+            $FLAGS
+
+      - name: Trigger image publish (GITHUB_TOKEN pushes don't chain events)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run publish-images.yml \
+            --ref "${{ github.ref_name }}" \
+            -f tag="${{ steps.version.outputs.tag }}"

@@ -1,5 +1,14 @@
 # ReunionAI — Administration-MeetingAI
 
+<!-- badges:start --><p align="center">
+  <a href="https://github.com/Gentleman-Programming/gentle-ai">
+    <img width="220" src="https://raw.githubusercontent.com/Gentleman-Programming/gentle-ai/main/docs/assets/brand/built-with-gentle-ai.png" alt="Built with Gentle-AI" />
+  </a>
+</p>
+
+<p align="center"><img alt="version" src="https://img.shields.io/badge/version-v0.1.0--rc-orange" />  <img alt="python" src="https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white" />  <img alt="fastapi" src="https://img.shields.io/badge/fastapi-0.110-009688?logo=fastapi&logoColor=white" />  <img alt="postgresql" src="https://img.shields.io/badge/postgresql-16-4169E1?logo=postgresql&logoColor=white" />  <img alt="astro" src="https://img.shields.io/badge/astro-7-BC52EE?logo=astro&logoColor=white" />  <img alt="react" src="https://img.shields.io/badge/react-19-61DAFB?logo=react&logoColor=white" />  <img alt="typescript" src="https://img.shields.io/badge/typescript-5.6-3178C6?logo=typescript&logoColor=white" />  <img alt="tailwindcss" src="https://img.shields.io/badge/tailwindcss-3.4-06B6D4?logo=tailwindcss&logoColor=white" />  <img alt="docker_compose" src="https://img.shields.io/badge/docker_compose-ready-2496ED?logo=docker&logoColor=white" /></p>
+<!-- badges:end -->
+
 **[Español](#español) · [English](#english)**
 
 ---
@@ -113,6 +122,8 @@ Correctness > Security > Tenant Isolation > Traceability > Testability
 > Maintainability > Performance > Convenience
 ```
 
+[Versioning policy](docs/development/versioning.md)
+
 Entorno local:
 
 ```bash
@@ -156,6 +167,7 @@ CI: `.github/workflows/ci.yml` corre lint + typecheck + tests + build en cada pu
 ### Core capabilities
 
 - **Speech-to-Text:** meeting recordings → transcripts (Whisper / faster-whisper).
+- **Pipeline de transcripción (MVP):** subir una grabación encola `process_recording`; el servicio `worker` de docker-compose la procesa con faster-whisper y deja un draft revisable (endpoints read-only `GET /api/v1/transcriptions/{id}` y `GET /api/v1/recordings/{id}/transcriptions`). Variables: `WHISPER_MODEL` (default `small`), `WHISPER_DEVICE` (default `auto`), `STORAGE_BASE`, `TRANSCRIBE_TIMEOUT_SECONDS`.
 - **OCR:** scanned documents and images → structured text (Tesseract + OCRmyPDF).
 - **AI-assisted minutes:** drafts with summaries, decisions, agreements, and tasks — always subject to human review and approval before publication.
 - **RBAC + MFA/2FA, full audit trail, and tenant isolation:** one tenant can never access another tenant's data.

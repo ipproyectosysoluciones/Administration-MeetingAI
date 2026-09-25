@@ -13,6 +13,7 @@ from app.core.middleware.rate_limit import InMemoryRateLimiter
 from app.core.security import JWTService, PasswordHasher
 from app.modules.audit.router import router as audit_router
 from app.modules.auth.router import router as auth_router
+from app.modules.jobs.service import JobService
 from app.modules.meetings.participants_router import router as meeting_participants_router
 from app.modules.meetings.router import router as meetings_router
 from app.modules.organizations.router import router as organizations_router
@@ -22,6 +23,8 @@ from app.modules.rbac.roles_router import router as rbac_roles_router
 from app.modules.recordings.providers import LocalStorageProvider
 from app.modules.recordings.router import router as recordings_router
 from app.modules.recordings.service import RecordingService
+from app.modules.transcription.router import router as transcriptions_router
+from app.modules.transcription.service import TranscriptionService
 from app.modules.users.router import router as users_router
 
 
@@ -44,7 +47,10 @@ def create_app(
     app.state.password_hasher = PasswordHasher(settings)
     app.state.rate_limiter = InMemoryRateLimiter()
     app.state.authorization_resolver = DBAuthorizationResolver(session_factory)
-    app.state.recording_service = RecordingService(storage=LocalStorageProvider())
+    app.state.recording_service = RecordingService(
+        storage=LocalStorageProvider(), jobs=JobService()
+    )
+    app.state.transcription_service = TranscriptionService()
 
     # JWT keys may legitimately be absent (e.g. the health-check surface in tests);
     # auth endpoints raise a clean JWT_NOT_CONFIGURED error in that case.
@@ -62,6 +68,7 @@ def create_app(
     app.include_router(meeting_participants_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")
     app.include_router(recordings_router, prefix="/api/v1")
+    app.include_router(transcriptions_router, prefix="/api/v1")
 
     @app.exception_handler(APIError)
     async def _api_error_handler(request: Request, exc: APIError) -> JSONResponse:
