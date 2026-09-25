@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write  # release dispatches publish-images.yml (workflow_dispatch)
 
     steps:
       - name: Checkout
