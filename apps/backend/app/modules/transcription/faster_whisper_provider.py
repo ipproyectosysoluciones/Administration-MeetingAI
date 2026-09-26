@@ -50,7 +50,7 @@ class FasterWhisperProvider(SpeechToTextProvider):
             self._model = self._model_loader(self.model_name, device=self.device)
             return self._model
         try:
-            from faster_whisper import (  # type: ignore[import-not-found]  # noqa: PLC0415
+            from faster_whisper import (  # type: ignore  # noqa: PLC0415
                 WhisperModel,
             )
         except ImportError as exc:
