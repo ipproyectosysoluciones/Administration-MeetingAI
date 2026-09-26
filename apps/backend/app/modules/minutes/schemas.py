@@ -5,11 +5,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MinuteCreateRequest(BaseModel):
-    title: str
+    title: str = Field(max_length=200)
     content: str = ""
     ai_provider: str | None = None
     ai_model: str | None = None
