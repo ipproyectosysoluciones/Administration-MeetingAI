@@ -7,6 +7,7 @@ user_agent en cada evento; nada se publica sin approved_*.
 
 from __future__ import annotations
 
+import math
 import uuid
 from datetime import UTC, datetime
 
@@ -15,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import APIError
 from app.modules.audit.service import AuditService
+from app.modules.meetings.models import Meeting
 from app.modules.minutes.models import Minute
+from app.modules.minutes.schemas import MinuteListResponse, MinuteResponse
 
 _VALID_TRANSITIONS: dict[str, str] = {
     "draft": "review",
@@ -189,22 +192,41 @@ class MinutesService:
         tenant_id: uuid.UUID,
         page: int = 1,
         page_size: int = 10,
-    ) -> list[Minute]:
-        offset = (page - 1) * page_size
+    ) -> MinuteListResponse:
+        meeting = (
+            await session.execute(
+                select(Meeting).where(
+                    Meeting.id == meeting_id,
+                    Meeting.organization_id == tenant_id,
+                    Meeting.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if meeting is None:
+            raise APIError(404, "MEETING_NOT_FOUND", "Meeting not found")
+
+        base = select(Minute).where(Minute.meeting_id == meeting_id, Minute.tenant_id == tenant_id)
+        total = (
+            await session.execute(select(func.count()).select_from(base.subquery()))
+        ).scalar_one()
         rows = (
             (
                 await session.execute(
-                    select(Minute)
-                    .where(Minute.meeting_id == meeting_id, Minute.tenant_id == tenant_id)
-                    .order_by(Minute.version.desc())
-                    .offset(offset)
+                    base.order_by(Minute.version.desc())
+                    .offset((page - 1) * page_size)
                     .limit(page_size)
                 )
             )
             .scalars()
             .all()
         )
-        return list(rows)
+        return MinuteListResponse(
+            items=[MinuteResponse.model_validate(r) for r in rows],
+            total=total,
+            page=page,
+            page_size=page_size,
+            pages=math.ceil(total / page_size) if total else 1,
+        )
 
     async def _audit(
         self,

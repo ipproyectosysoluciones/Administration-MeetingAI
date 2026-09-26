@@ -16,6 +16,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.jobs.service import JobService
 from app.modules.meetings.participants_router import router as meeting_participants_router
 from app.modules.meetings.router import router as meetings_router
+from app.modules.minutes.router import router as minutes_router
 from app.modules.organizations.router import router as organizations_router
 from app.modules.rbac.assignments_router import router as rbac_assignments_router
 from app.modules.rbac.resolver import DBAuthorizationResolver
@@ -66,6 +67,7 @@ def create_app(
     app.include_router(rbac_assignments_router, prefix="/api/v1")
     app.include_router(meetings_router, prefix="/api/v1")
     app.include_router(meeting_participants_router, prefix="/api/v1")
+    app.include_router(minutes_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")
     app.include_router(recordings_router, prefix="/api/v1")
     app.include_router(transcriptions_router, prefix="/api/v1")
