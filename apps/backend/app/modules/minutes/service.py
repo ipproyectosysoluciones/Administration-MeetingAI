@@ -43,6 +43,18 @@ class MinutesService:
         ai_request_id: str | None = None,
     ) -> Minute:
         """Inserta un nuevo borrador (version = siguiente libre para este meeting)."""
+        meeting = (
+            await session.execute(
+                select(Meeting).where(
+                    Meeting.id == meeting_id,
+                    Meeting.organization_id == tenant_id,
+                    Meeting.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if meeting is None:
+            raise APIError(404, "MEETING_NOT_FOUND", "Meeting not found")
+
         last = (
             await session.execute(
                 select(func.max(Minute.version)).where(
