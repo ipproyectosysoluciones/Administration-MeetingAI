@@ -60,9 +60,7 @@ def _seed_role_permissions() -> None:
 def upgrade() -> None:
     op.create_table(
         "minutes",
-        sa.Column(
-            "id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")
-        ),
+        sa.Column("id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column(
             "meeting_id",
             _UUID,
@@ -78,9 +76,7 @@ def upgrade() -> None:
         sa.Column("title", sa.String(200), nullable=False),
         sa.Column("content", sa.Text(), nullable=False, server_default=""),
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
-        sa.Column(
-            "status", sa.String(16), nullable=False, server_default="draft"
-        ),
+        sa.Column("status", sa.String(16), nullable=False, server_default="draft"),
         sa.Column("created_by", _UUID, sa.ForeignKey("users.id"), nullable=False),
         sa.Column("reviewed_by", _UUID, sa.ForeignKey("users.id"), nullable=True),
         sa.Column("reviewed_at", postgresql.TIMESTAMP(timezone=True)),
