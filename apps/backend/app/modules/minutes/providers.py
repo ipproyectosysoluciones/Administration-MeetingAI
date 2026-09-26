@@ -11,8 +11,7 @@ from typing import Protocol
 class AIProvider(Protocol):
     """Puerto para rellenar el borrador de minuta a partir de una transcripción."""
 
-    async def summarize(self, *, transcript: str, meeting_title: str) -> str:
-        ...
+    async def summarize(self, *, transcript: str, meeting_title: str) -> str: ...
 
 
 class MockProvider:
