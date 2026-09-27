@@ -1,8 +1,8 @@
-"""MinutesService — ciclo de vida append-only (MIN-102).
+"""MinutesService — lifecycle + audit (MIN-102).
 
-draft → review → approved → published → archived. Cada transición crea una
-nueva entrada (nueva fila); nunca sobrescribe. Auditoría: actor + ip +
-user_agent en cada evento; nada se publica sin approved_*.
+draft → review → approved → published → archived. El status muta in-place
+(guardado por CHECK constraint); la auditoría de eventos es append-only
+(actor + ip + user_agent). `version` rastrea borradores sucesivos por meeting.
 """
 
 from __future__ import annotations
