@@ -17,3 +17,7 @@ Change: `meetings-transcription` (SDD). Estado: **implementado y mergeado a deve
 - Desviación documentada: canal de subagentes (gentle-ai-worker / sdd-apply) inestable el 2026-09-23/24 por proveedor de modelos; varias slices se implementaron inline con autorización explícita del owner y TDD orquestado por el padre.
 - Incidente y remediación: PR #72 cayó con backend rojo por deriva externa de SQLAlchemy 2.1 (pin en #73; issue #79 para el upgrade real). Retry-loop de CI corregido de ahora en adelante (no mergear si hay FAILURE).
 - Issues: #74–77 cerrados; #78 (TASK-305) abierto al implementar; #79 (SA 2.1), #80 (advisories acumulados) abiertos como follow-ups.
+
+## E2E smoke (issue #90)
+- `scripts/smoke_transcription.py` (issue #90, PR): genera un wav sintético (ffmpeg sine), lo almacena, encola un job `process_recording` y corre `worker.run_once` con faster-whisper real. No corre en CI; local bajo demanda (`cd apps/backend && .venv/bin/python ../../scripts/smoke_transcription.py`).
+- Estado: **pendiente de ejecución** (requiere descargar el modelo whisper + ffmpeg). Resultado se registra aquí al correrlo.
