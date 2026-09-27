@@ -67,6 +67,8 @@ async def test_create_draft_sets_version_one_and_audits() -> None:
     assert m.status == "draft"
     assert m.version == 1
     assert m in session.added
+    # La auditoría agrega un segundo objeto (el AuditEvent) además del minute.
+    assert len(session.added) >= 2
     assert session.flushes >= 1
 
 

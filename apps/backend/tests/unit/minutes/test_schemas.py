@@ -16,3 +16,8 @@ def test_title_accepts_200_chars() -> None:
 def test_title_rejects_over_200_chars() -> None:
     with pytest.raises(ValidationError):
         MinuteCreateRequest(title="x" * 201)
+
+
+def test_title_rejects_empty() -> None:
+    with pytest.raises(ValidationError):
+        MinuteCreateRequest(title="")
