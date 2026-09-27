@@ -46,5 +46,6 @@ flowchart TD
 
 - El worker precalienta el whisper via build arg en `Dockerfile.worker` (no depende de red en el primer job).
 - `TRANSCRIBE_TIMEOUT_SECONDS` limita la llamada al provider.
+- `TRANSCRIPTION_DEFAULT_LANGUAGE` (default `es`) es el fallback cuando el provider no detecta idioma.
 - No hay diarización en el MVP (sólo texto como dato; quién dijo qué queda fuera del primer change).
 

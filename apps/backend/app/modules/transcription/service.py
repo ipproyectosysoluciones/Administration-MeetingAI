@@ -7,6 +7,7 @@ tenant_id from outside.
 from __future__ import annotations
 
 import math
+import os
 import uuid
 from decimal import Decimal
 
@@ -18,6 +19,9 @@ from app.modules.recordings.models import Recording
 from app.modules.transcription.models import Transcript
 from app.modules.transcription.provider import TranscriptionResult
 from app.modules.transcription.schemas import TranscriptionListResponse, TranscriptionResponse
+
+# Fallback language when the provider returns no detected language.
+DEFAULT_LANGUAGE = os.environ.get("TRANSCRIPTION_DEFAULT_LANGUAGE", "es")
 
 
 class TranscriptionService:
@@ -44,7 +48,7 @@ class TranscriptionService:
             recording_id=recording.id,
             meeting_id=recording.meeting_id,
             tenant_id=recording.tenant_id,
-            language=result.language or "es",
+            language=result.language or DEFAULT_LANGUAGE,
             text=result.text,
             segments=[
                 {"start": s.start, "end": s.end, "text": s.text, "speaker": s.speaker}
