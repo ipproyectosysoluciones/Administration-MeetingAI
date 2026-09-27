@@ -18,7 +18,9 @@ from app.core.exceptions import APIError
 from app.modules.audit.service import AuditService
 from app.modules.meetings.models import Meeting
 from app.modules.minutes.models import Minute
+from app.modules.minutes.providers import AIProvider, MockProvider
 from app.modules.minutes.schemas import MinuteListResponse, MinuteResponse
+from app.modules.transcription.models import Transcript
 
 _VALID_TRANSITIONS: dict[str, str] = {
     "draft": "review",
@@ -29,6 +31,61 @@ _VALID_TRANSITIONS: dict[str, str] = {
 
 
 class MinutesService:
+    def __init__(self, provider: AIProvider | None = None) -> None:
+        self.provider: AIProvider = provider or MockProvider()
+
+    async def generate_draft_from_transcription(
+        self,
+        session: AsyncSession,
+        *,
+        meeting_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        created_by: uuid.UUID,
+    ) -> Minute:
+        """Genera un borrador de acta desde la transcripción más reciente de la meeting."""
+        meeting = (
+            await session.execute(
+                select(Meeting).where(
+                    Meeting.id == meeting_id,
+                    Meeting.organization_id == tenant_id,
+                    Meeting.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if meeting is None:
+            raise APIError(404, "MEETING_NOT_FOUND", "Meeting not found")
+
+        transcript = (
+            await session.execute(
+                select(Transcript)
+                .where(Transcript.meeting_id == meeting_id, Transcript.tenant_id == tenant_id)
+                .order_by(Transcript.created_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if transcript is None:
+            raise APIError(409, "NO_TRANSCRIPTION", "No transcription available for this meeting")
+
+        try:
+            summary = await self.provider.summarize(
+                transcript=transcript.text, meeting_title=meeting.title
+            )
+        except ValueError as exc:
+            raise APIError(409, "EMPTY_TRANSCRIPTION", "Transcription has no content") from exc
+
+        provider_name = getattr(self.provider, "model_name", None) or type(self.provider).__name__
+        return await self.create_draft(
+            session,
+            meeting_id=meeting_id,
+            tenant_id=tenant_id,
+            title=meeting.title,
+            content=summary,
+            created_by=created_by,
+            ai_provider=provider_name,
+            ai_model=getattr(self.provider, "model_name", None),
+            ai_request_id=None,
+        )
+
     async def create_draft(
         self,
         session: AsyncSession,

@@ -97,6 +97,22 @@ async def create_minute_draft(
     return MinuteResponse.model_validate(row)
 
 
+@router.post(
+    "/meetings/{meeting_id}/minutes/generate",
+    response_model=MinuteResponse,
+    status_code=201,
+)
+async def generate_minute_draft(meeting_id: uuid.UUID, db: Db, auth: MinuteWrite) -> MinuteResponse:
+    row = await _service().generate_draft_from_transcription(
+        db,
+        meeting_id=meeting_id,
+        tenant_id=_tenant(auth),
+        created_by=auth.user_id,
+    )
+    await db.commit()
+    return MinuteResponse.model_validate(row)
+
+
 @router.post("/minutes/{minute_id}/review", response_model=MinuteResponse)
 async def review_minute(
     minute_id: uuid.UUID, request: Request, db: Db, auth: MinuteWrite
