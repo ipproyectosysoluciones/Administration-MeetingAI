@@ -13,6 +13,7 @@ from app.core.middleware.rate_limit import InMemoryRateLimiter
 from app.core.security import JWTService, PasswordHasher
 from app.modules.audit.router import router as audit_router
 from app.modules.auth.router import router as auth_router
+from app.modules.jobs.router import router as jobs_router
 from app.modules.jobs.service import JobService
 from app.modules.meetings.participants_router import router as meeting_participants_router
 from app.modules.meetings.router import router as meetings_router
@@ -21,8 +22,12 @@ from app.modules.organizations.router import router as organizations_router
 from app.modules.rbac.assignments_router import router as rbac_assignments_router
 from app.modules.rbac.resolver import DBAuthorizationResolver
 from app.modules.rbac.roles_router import router as rbac_roles_router
+from app.modules.documents.router import router as documents_router
+from app.modules.documents.service import DocumentService
+from app.modules.documents.providers import LocalStorageProvider
 from app.modules.recordings.providers import LocalStorageProvider
 from app.modules.recordings.router import router as recordings_router
+from app.modules.notifications.router import router as notifications_router
 from app.modules.recordings.service import RecordingService
 from app.modules.transcription.router import router as transcriptions_router
 from app.modules.transcription.service import TranscriptionService
@@ -52,6 +57,9 @@ def create_app(
         storage=LocalStorageProvider(), jobs=JobService()
     )
     app.state.transcription_service = TranscriptionService()
+    app.state.document_service = DocumentService(
+        storage=LocalStorageProvider()
+    )
 
     # JWT keys may legitimately be absent (e.g. the health-check surface in tests);
     # auth endpoints raise a clean JWT_NOT_CONFIGURED error in that case.
@@ -69,8 +77,11 @@ def create_app(
     app.include_router(meeting_participants_router, prefix="/api/v1")
     app.include_router(minutes_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")
+    app.include_router(documents_router, prefix="/api/v1")
     app.include_router(recordings_router, prefix="/api/v1")
     app.include_router(transcriptions_router, prefix="/api/v1")
+    app.include_router(jobs_router, prefix="/api/v1")
+    app.include_router(notifications_router, prefix="/api/v1")
 
     @app.exception_handler(APIError)
     async def _api_error_handler(request: Request, exc: APIError) -> JSONResponse:
