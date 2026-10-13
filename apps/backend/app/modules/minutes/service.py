@@ -253,6 +253,62 @@ class MinutesService:
             raise APIError(404, "MINUTE_NOT_FOUND", "Minute not found")
         return row
 
+    async def update_draft(
+        self,
+        session: AsyncSession,
+        *,
+        minute_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        title: str | None = None,
+        content: str | None = None,
+    ) -> Minute:
+        """Actualiza el contenido del borrador creando una nueva versión."""
+        minute = await self.get_for_tenant(session, minute_id=minute_id, tenant_id=tenant_id)
+        if minute.status != "draft":
+            raise APIError(409, "MINUTE_INVALID_STATE", "Solo un draft puede editarse")
+
+        if title is not None:
+            minute.title = title
+        if content is not None:
+            # Guardar versión anterior
+            last = (
+                await session.execute(
+                    select(func.max(Minute.version)).where(
+                        Minute.meeting_id == minute.meeting_id, Minute.tenant_id == tenant_id
+                    )
+                )
+            ).scalar_one_or_none()
+            next_version = (last or 0) + 1
+            
+            # Crear versión histórica
+            from app.modules.minutes.models import MinuteVersion
+            version = MinuteVersion(
+                minute_id=minute.id,
+                version=minute.version,
+                title=minute.title,
+                content=minute.content,
+                created_by=user_id,
+            )
+            session.add(version)
+
+            minute.version = next_version
+            if content is not None:
+                minute.content = content
+            if title is not None:
+                minute.title = title
+            minute.updated_at = datetime.now(UTC)
+
+        await session.flush()
+        await self._audit(
+            session,
+            tenant_id=tenant_id,
+            actor=user_id,
+            action="minutes.draft.update",
+            resource_id=minute.id,
+        )
+        return minute
+
     async def list_for_meeting(
         self,
         session: AsyncSession,
