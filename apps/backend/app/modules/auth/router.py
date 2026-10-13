@@ -24,6 +24,7 @@ from app.core.exceptions import APIError, ExpiredTokenError, InvalidTokenError
 from app.core.middleware.rate_limit import InMemoryRateLimiter
 from app.core.security import JWTService
 from app.modules.auth.schemas import (
+    ForgotPasswordRequest,
     LoginRequest,
     MfaChallengeRequest,
     MfaDisableRequest,
@@ -31,6 +32,7 @@ from app.modules.auth.schemas import (
     MfaStatusResponse,
     MfaVerifyRequest,
     RegisterRequest,
+    ResetPasswordRequest,
     SessionItem,
     SessionListResponse,
     TokenResponse,
@@ -306,3 +308,30 @@ async def revoke_session(
         db, context.user_id, session_id, context.tenant_id, _ip(request), _user_agent(request)
     )
     return {"message": "Session revoked"}
+
+
+# -- password reset --------------------------------------------------------
+
+
+@router.post("/auth/forgot-password")
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    request: Request,
+    db: Db,
+) -> dict[str, str]:
+    settings: Settings = request.app.state.settings
+    _check_rate_limit(request, "forgot", _ip(request) or "unknown", settings.rate_limit_forgot_ip)
+    await _service(request).forgot_password(db, payload.email.strip().lower(), _ip(request), _user_agent(request))
+    return {"message": "If the email exists, a password reset link has been sent"}
+
+
+@router.post("/auth/reset-password")
+async def reset_password(
+    payload: ResetPasswordRequest,
+    request: Request,
+    db: Db,
+) -> dict[str, str]:
+    settings: Settings = request.app.state.settings
+    _check_rate_limit(request, "reset", _ip(request) or "unknown", settings.rate_limit_reset_ip)
+    await _service(request).reset_password(db, payload.token, payload.password, _ip(request), _user_agent(request))
+    return {"message": "Password has been reset successfully"}
