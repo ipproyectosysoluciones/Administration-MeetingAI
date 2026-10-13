@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,6 +15,31 @@ class MinuteCreateRequest(BaseModel):
     ai_provider: str | None = None
     ai_model: str | None = None
     ai_request_id: str | None = None
+
+
+class MinuteUpdateRequest(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    content: Optional[str] = None
+
+
+class MinuteVersionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    minute_id: uuid.UUID
+    version: int
+    title: str
+    content: str
+    created_by: uuid.UUID | None
+    created_at: datetime
+
+
+class MinuteVersionListResponse(BaseModel):
+    items: list[MinuteVersionResponse]
+    total: int
+    page: int
+    page_size: int
+    pages: int
 
 
 class MinuteResponse(BaseModel):

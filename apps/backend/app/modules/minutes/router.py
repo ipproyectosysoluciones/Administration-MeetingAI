@@ -18,6 +18,9 @@ from app.modules.minutes.schemas import (
     MinuteCreateRequest,
     MinuteListResponse,
     MinuteResponse,
+    MinuteVersionListResponse,
+    MinuteVersionResponse,
+    MinuteUpdateRequest,
 )
 from app.modules.minutes.service import MinutesService
 
@@ -169,3 +172,58 @@ async def archive_minute(
     row = await _service().archive(db, minute=minute, actor=auth.user_id)
     await db.commit()
     return MinuteResponse.model_validate(row)
+
+
+@router.patch("/minutes/{minute_id}", response_model=MinuteResponse)
+async def update_minute_draft(
+    minute_id: uuid.UUID,
+    payload: MinuteUpdateRequest,
+    request: Request,
+    db: Db,
+    auth: MinuteWrite,
+) -> MinuteResponse:
+    row = await _service().update_draft(
+        db,
+        minute_id=minute_id,
+        tenant_id=_tenant(auth),
+        user_id=auth.user_id,
+        title=payload.title,
+        content=payload.content,
+    )
+    await db.commit()
+    return MinuteResponse.model_validate(row)
+
+
+@router.get("/minutes/{minute_id}/versions", response_model=MinuteVersionListResponse)
+async def list_minute_versions(
+    minute_id: uuid.UUID,
+    request: Request,
+    db: Db,
+    auth: MinuteRead,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=_MAX_PAGE_SIZE),
+) -> MinuteVersionListResponse:
+    minute = await _service().get_for_tenant(db, minute_id=minute_id, tenant_id=_tenant(auth))
+    # Use a separate query for versions
+    from app.modules.minutes.models import MinuteVersion
+    from sqlalchemy import select, func
+    from sqlalchemy.ext.asyncio import AsyncSession
+    
+    base = select(MinuteVersion).where(MinuteVersion.minute_id == minute_id)
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
+    rows = (
+        await db.execute(
+            base.order_by(MinuteVersion.version.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).scalars().all()
+    
+    from math import ceil
+    return MinuteVersionListResponse(
+        items=[MinuteVersionResponse.model_validate(r) for r in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=ceil(total / page_size) if total else 1,
+    )
