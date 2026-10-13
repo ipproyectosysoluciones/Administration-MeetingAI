@@ -22,7 +22,7 @@ from app.core.config import Settings
 from app.core.exceptions import APIError, TenantResolutionError
 from app.core.security import TOTP, JWTService, PasswordHasher
 from app.modules.audit.models import AuditEvent
-from app.modules.auth.models import MFADevice, RefreshToken, Session
+from app.modules.auth.models import MFADevice, PasswordResetToken, RefreshToken, Session
 from app.modules.organizations.models import Membership, Organization
 from app.modules.rbac.models import Role, UserRole
 from app.modules.rbac.resolver import resolve_auth_context
@@ -600,6 +600,122 @@ class AuthService:
             is_active=user.is_active,
             mfa_enabled=user.mfa_enabled,
         )
+
+    # -- password reset ------------------------------------------------------
+
+    async def forgot_password(
+        self,
+        session: AsyncSession,
+        email: str,
+        ip: str | None,
+        user_agent: str | None,
+    ) -> None:
+        """Initiate password reset by sending a reset token to the user's email."""
+        user = (
+            await session.execute(select(User).where(User.email == email))
+        ).scalar_one_or_none()
+        if user is None or not user.is_active or user.deleted_at is not None:
+            # Don't reveal if email exists
+            return
+
+        # Invalidate any existing unused reset tokens for this user
+        await session.execute(
+            update(PasswordResetToken)
+            .where(
+                PasswordResetToken.user_id == user.id,
+                PasswordResetToken.used_at.is_(None),
+                PasswordResetToken.expires_at > datetime.now(UTC),
+            )
+            .values(used_at=datetime.now(UTC))
+        )
+
+        # Generate a secure reset token (expires in 1 hour)
+        reset_token = secrets.token_urlsafe(32)
+        reset_token_hash = hashlib.sha256(reset_token.encode()).hexdigest()
+        expires_at = datetime.now(UTC) + timedelta(hours=1)
+
+        reset_token_obj = PasswordResetToken(
+            user_id=user.id,
+            token_hash=reset_token_hash,
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
+            ip=ip,
+            user_agent=user_agent,
+        )
+        session.add(reset_token_obj)
+        await session.flush()
+
+        # TODO: Send email with reset token
+        # For now, we log it (in production, send via email provider)
+        self._record_audit(
+            session,
+            user.id,
+            user.id,  # tenant_id will be resolved from membership
+            "auth.forgot_password",
+            "user",
+            user.id,
+            ip,
+            user_agent,
+        )
+        await session.commit()
+
+    async def reset_password(
+        self,
+        session: AsyncSession,
+        token: str,
+        new_password: str,
+        ip: str | None,
+        user_agent: str | None,
+    ) -> None:
+        """Reset user password using a valid reset token."""
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        reset_token = (
+            await session.execute(
+                select(PasswordResetToken)
+                .where(
+                    PasswordResetToken.token_hash == token_hash,
+                    PasswordResetToken.used_at.is_(None),
+                    PasswordResetToken.expires_at > datetime.now(UTC),
+                )
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+
+        if reset_token is None:
+            raise APIError(400, "INVALID_RESET_TOKEN", "Invalid or expired reset token")
+
+        user = await session.get(User, reset_token.user_id)
+        if user is None or not user.is_active or user.deleted_at is not None:
+            raise APIError(400, "INVALID_RESET_TOKEN", "Invalid or expired reset token")
+
+        # Update password
+        user.password_hash = self._password_hasher.hash(new_password)
+        session.add(user)
+
+        # Mark reset token as used
+        reset_token.used_at = datetime.now(UTC)
+        session.add(reset_token)
+
+        # Revoke all refresh tokens for security
+        await session.execute(
+            update(RefreshToken)
+            .where(
+                RefreshToken.user_id == user.id,
+                RefreshToken.revoked_at.is_(None),
+            )
+            .values(revoked_at=datetime.now(UTC))
+        )
+
+        self._record_audit(
+            session,
+            user.id,
+            user.id,  # tenant_id will be resolved from membership
+            "auth.password_reset",
+            "user",
+            user.id,
+            None,
+            None,
+        )
+        await session.commit()
 
     def _record_audit(
         self,

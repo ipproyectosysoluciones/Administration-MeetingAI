@@ -79,3 +79,16 @@ class SessionListResponse(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+class PasswordResetResponse(BaseModel):
+    message: str
