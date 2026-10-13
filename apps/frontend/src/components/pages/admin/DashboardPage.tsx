@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Calendar, Users, FileText, Settings, TrendingUp, Clock, CheckCircle, AlertCircle, XCircle, Loader2, BarChart3, FileText as FileTextIcon, Users as UsersIcon, Calendar as CalendarIcon, Mic, Archive } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Users, FileText, Settings, TrendingUp, Clock, CheckCircle, AlertCircle, XCircle, Loader2, BarChart3, FileText as FileTextIcon, Users as UsersIcon, Calendar as CalendarIcon, Mic, Archive, Building , ShieldCheck } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -8,6 +8,9 @@ import { organizationsApi, usersApi, meetingsApi, minutesApi, documentsApi, reco
 import { useAuthStore } from '@/stores/auth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useState, useEffect } from 'react';
+import { clsx } from 'clsx';
+import { StatusBadge } from '@/components/ui/Badge';
 
 interface Stats {
   totalOrganizations: number;

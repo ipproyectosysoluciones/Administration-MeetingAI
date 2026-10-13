@@ -14,6 +14,7 @@ import { documentsApi, jobsApi } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { clsx } from 'clsx';
 
 interface Document {
   id: string;
@@ -142,6 +143,11 @@ export default function DocumentsPage() {
     } catch (error) {
       console.error('Error deleting document:', error);
     }
+  };
+
+  const confirmOcr = async () => {
+    if (!ocrDocument) return;
+    await handleOcr(ocrDocument);
   };
 
   const handleOcr = async (document: Document) => {
@@ -327,8 +333,8 @@ export default function DocumentsPage() {
                 <Input
                   placeholder="Buscar documentos..."
                   value={search}
+
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por título..."
                 />
               </div>
               <Select
@@ -357,7 +363,7 @@ export default function DocumentsPage() {
                 placeholder="Filtrar por tipo"
               />
               <Select
-                value={pageSize}
+                value={String(pageSize)}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
                 options={[
                   { value: '10', label: '10 por página' },
@@ -427,7 +433,7 @@ export default function DocumentsPage() {
         <ConfirmDialog
           isOpen={!!ocrDocument}
           onClose={() => { setOcrDocument(null); setOcrLoading(false); }}
-          onConfirm={handleOcr}
+          onConfirm={confirmOcr}
           title="Ejecutar OCR"
           message={`¿Ejecutar OCR en el documento "${ocrDocument?.title}"? Esto procesará el documento para extraer texto.`}
           confirmText="Ejecutar OCR"

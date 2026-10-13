@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Play, Pause, MoreVertical, Trash2, Download, Volume2, VolumeX, Loader2, RotateCcw } from 'lucide-react';
+import { Plus, Search, Filter, Play, Pause, MoreVertical, Trash2, Download, Volume2, VolumeX, Loader2, RotateCcw, Upload, FileText } from 'lucide-react';
 import { PortalLayout } from '@/components/layout/PortalLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -14,6 +14,7 @@ import { recordingsApi, jobsApi } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { clsx } from 'clsx';
 
 interface Recording {
   id: string;
@@ -271,8 +272,8 @@ export default function RecordingsPage() {
                 <Input
                   placeholder="Buscar grabaciones..."
                   value={search}
+
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por nombre..."
                 />
               </div>
               <Select
@@ -288,7 +289,7 @@ export default function RecordingsPage() {
                 placeholder="Filtrar por estado"
               />
               <Select
-                value={pageSize}
+                value={String(pageSize)}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
                 options={[
                   { value: '10', label: '10 por página' },

@@ -75,9 +75,10 @@ function initFormValidation(): void {
 
       // Submit form
       try {
-        const formData = new FormData(form);
-        const response = await fetch(form.action || window.location.pathname, {
-          method: form.method || 'POST',
+        const formEl = form as HTMLFormElement;
+        const formData = new FormData(formEl);
+        const response = await fetch(formEl.action || window.location.pathname, {
+          method: formEl.method || 'POST',
           body: formData,
           headers: {
             'Accept': 'application/json',

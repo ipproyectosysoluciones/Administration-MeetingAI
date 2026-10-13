@@ -1,4 +1,5 @@
-import { ReactNode, forwardRef, HTMLAttributes } from 'react';
+import { forwardRef } from 'react';
+import type { ReactNode, HTMLAttributes } from 'react';
 import { clsx } from 'clsx';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 
@@ -9,7 +10,7 @@ export interface Column<T> {
   sortable?: boolean;
   className?: string;
   width?: string;
-  render?: (value: unknown, row: T) => ReactNode;
+  render?: (value: any, row: T) => ReactNode;
 }
 
 interface TableProps<T> {
@@ -140,13 +141,16 @@ export function Table<T>({
               )}
               onClick={() => onRowClick?.(row)}
             >
-              {columns.map((col) => (
+              {columns.map((col) => {
+                const cellValue = typeof col.accessor === 'function' ? col.accessor(row) : (row as any)[col.accessor];
+                return (
                 <td key={col.key} className={col.className}>
                   {col.render
-                    ? col.render((row as any)[col.accessor], row)
-                    : (row as any)[col.accessor]}
+                    ? col.render(cellValue, row)
+                    : cellValue as ReactNode}
                 </td>
-              ))}
+                );
+              })}
             </tr>
           ))}
         </tbody>

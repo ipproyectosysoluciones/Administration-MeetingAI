@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Shield, Users, MoreVertical, Edit, Trash2, ShieldCheck, X, Key, Lock } from 'lucide-react';
+import { Plus, Search, Filter, Shield, Users, MoreVertical, Edit, Trash2, ShieldCheck, X, Key, Lock, Eye } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -9,11 +9,13 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Table, Pagination } from '@/components/ui/Table';
 import { Badge, StatusBadge } from '@/components/ui/Badge';
 import { Dropdown } from '@/components/ui/Dropdown';
+import type { DropdownItem } from '@/components/ui/Dropdown';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { rbacApi } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { clsx } from 'clsx';
 
 interface Role {
   id: string;
@@ -43,6 +45,7 @@ export default function AdminRbacPage() {
   const [viewingRole, setViewingRole] = useState<any>(null);
   const [assigningPermissions, setAssigningPermissions] = useState<any>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [permissionSearch, setPermissionSearch] = useState('');
 
   const { hasPermission } = useAuthStore();
   const navigate = useNavigate();
@@ -112,24 +115,6 @@ export default function AdminRbacPage() {
     setConfirmDelete(true);
   };
 
-  const handleAssignPermission = async (permissionId: string) => {
-    try {
-      await rbacApi.assignPermissionToRole(assigningRole.id, permissionId);
-      fetchData();
-    } catch (error) {
-      console.error('Error assigning permission:', error);
-    }
-  };
-
-  const handleRevokePermission = async (permissionId: string) => {
-    try {
-      await rbacApi.revokePermissionFromRole(assigningRole.id, permissionId);
-      fetchData();
-    } catch (error) {
-      console.error('Error revoking permission:', error);
-    }
-  };
-
   const openAssignPermissionsModal = (role: any) => {
     setAssigningPermissions(role);
     setSelectedPermissions(role.permissions || []);
@@ -146,6 +131,23 @@ export default function AdminRbacPage() {
       console.error('Error assigning permissions:', error);
     }
   };
+
+  const handleDelete = async () => {
+    if (!deletingRole) return;
+    try {
+      await rbacApi.deleteRole(deletingRole.id);
+      setConfirmDelete(false);
+      setDeletingRole(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting role:', error);
+    }
+  };
+
+  const filteredPermissions = permissions.filter((perm: any) =>
+    (perm.display_name || perm.name || '').toLowerCase().includes(permissionSearch.toLowerCase()) ||
+    `${perm.resource}.${perm.action}`.toLowerCase().includes(permissionSearch.toLowerCase())
+  );
 
   const formatDate = (dateStr: string) => {
     return format(new Date(dateStr), 'dd/MM/yyyy', { locale: es });
@@ -195,8 +197,8 @@ export default function AdminRbacPage() {
       header: 'Acciones',
       accessor: 'id',
       render: (_: any, row: any) => {
-        const buildItems = () => {
-          const items = [
+        const buildItems = (): DropdownItem[] => {
+          const items: DropdownItem[] = [
             { label: 'Ver', onClick: () => openViewModal(row), icon: <Eye className="w-4 h-4" /> },
             { label: 'Editar', onClick: () => openEditModal(row), icon: <Edit className="w-4 h-4" /> },
             { divider: true },

@@ -6,6 +6,7 @@ export const minutesApi = {
     page?: number;
     page_size?: number;
     status?: string;
+    q?: string;
   }) => api.get<MinuteListResponse>('/meetings/:meetingId/minutes', params),
 
   get: (minuteId: string) => api.get<MinuteResponse>(`/minutes/${minuteId}`),
@@ -31,7 +32,7 @@ export const minutesApi = {
   archive: (minuteId: string) =>
     api.post<{ id: string }>(`/minutes/${minuteId}/archive`, {}),
 
-  listVersions: (minuteId: string, params?: { page?: number; page_size?: number }) =>
+  listVersions: (minuteId: string, params?: { page?: number; page_size?: number; search?: string }) =>
     api.get<MinuteVersionListResponse>(`/minutes/${minuteId}/versions`, params),
 
   delete: (minuteId: string) => api.delete<void>(`/minutes/${minuteId}`),
@@ -64,21 +65,29 @@ export const meetingsApi = {
 };
 
 export const recordingsApi = {
-  list: (meetingId: string) => api.get<any[]>(`/meetings/${meetingId}/recordings`),
+  // TODO(#119): el backend no expone GET /recordings global; dashboard necesita listado global.
+  list: (params?: { page?: number; page_size?: number; status?: string; q?: string }) =>
+    api.get<{ items: any[]; total: number; page: number; page_size: number; pages: number }>('/recordings', params),
+
+  listByMeeting: (meetingId: string) => api.get<any[]>(`/meetings/${meetingId}/recordings`),
 
   get: (recordingId: string) => api.get<any>(`/recordings/${recordingId}`),
 
-  upload: (meetingId: string, file: File) =>
-    api.upload<any>(`/meetings/${meetingId}/recordings`, file),
+  upload: (file: File, metadata: { title?: string; meeting_id?: string; [k: string]: any }) =>
+    api.upload<any>('/recordings', file, Object.fromEntries(Object.entries(metadata).map(([k, v]) => [k, String(v)]))),
 
   download: (recordingId: string) =>
-    api.get<Blob>(`/recordings/${recordingId}/content`, { responseType: 'blob' }),
+    api.getBlob(`/recordings/${recordingId}/content`),
 
   delete: (recordingId: string) => api.delete(`/recordings/${recordingId}`),
 };
 
 export const transcriptionsApi = {
-  list: (meetingId: string) => api.get<any[]>(`/meetings/${meetingId}/transcriptions`),
+  // TODO(#119): el backend no expone GET /transcriptions global; dashboard necesita listado global.
+  list: (params?: { page?: number; page_size?: number }) =>
+    api.get<{ items: any[]; total: number; page: number; page_size: number; pages: number }>('/transcriptions', params),
+
+  listByMeeting: (meetingId: string) => api.get<any[]>(`/meetings/${meetingId}/transcriptions`),
 
   get: (transcriptionId: string) => api.get<any>(`/transcriptions/${transcriptionId}`),
 
@@ -111,7 +120,7 @@ export const documentsApi = {
     api.upload<any>('/documents/upload', file, data),
 
   download: (documentId: string, version?: number) =>
-    api.get<Blob>(`/documents/${documentId}/content`, { params: { version }, responseType: 'blob' }),
+    api.getBlob(`/documents/${documentId}/content`, version !== undefined ? { version } : undefined),
 
   listVersions: (documentId: string, params?: { page?: number; page_size?: number }) =>
     api.get<{ items: any[]; total: number; page: number; page_size: number; pages: number }>(`/documents/${documentId}/versions`, params),
@@ -156,7 +165,7 @@ export const jobsApi = {
 };
 
 export const organizationsApi = {
-  list: (params?: { page?: number; page_size?: number }) =>
+  list: (params?: { page?: number; page_size?: number; search?: string; status?: string }) =>
     api.get<any>(`/organizations/me/properties`, params),
 
   get: (organizationId: string) => api.get<any>(`/organizations/${organizationId}`),
@@ -237,9 +246,7 @@ export const authApi = {
   mfaDisable: (password: string) => api.post(`/auth/mfa/disable`, { password }),
 
   mfaChallenge: (code: string, mfaToken: string) =>
-    api.post<{ access_token: string; expires_in: number; user: any }>('/auth/mfa/challenge', { code }, {
-      headers: { Authorization: `Bearer ${mfaToken}` },
-    }),
+    api.post<{ access_token: string; expires_in: number; user: any }>('/auth/mfa/challenge', { code }, { Authorization: `Bearer ${mfaToken}` }),
 
   forgotPassword: (email: string) => api.post(`/auth/forgot-password`, { email }),
 
@@ -265,6 +272,9 @@ export const rbacApi = {
 
   listPermissions: () => api.get<any>(`/rbac/permissions`),
 
+  assignPermissions: (roleId: string, permissionNames: string[]) =>
+    api.post<{ id: string }>(`/rbac/roles/${roleId}/permissions`, { permissions: permissionNames }),
+
   assignPermissionToRole: (roleId: string, permissionId: string) =>
     api.post<any>(`/rbac/roles/${roleId}/permissions`, { permission_id: permissionId }),
 
@@ -281,13 +291,13 @@ export const rbacApi = {
 };
 
 export const auditApi = {
-  list: (params?: { page?: number; page_size?: number; action?: string; resource?: string; actor_id?: string }) =>
+  list: (params?: { page?: number; page_size?: number; action?: string; resource?: string; actor_id?: string; start_date?: string; end_date?: string }) =>
     api.get<any>(`/audit`, params),
 
   get: (eventId: string) => api.get<any>(`/audit/${eventId}`),
 
   export: (params?: { format?: 'csv' | 'json'; start_date?: string; end_date?: string }) =>
-    api.get<Blob>(`/audit/export`, { ...params, responseType: 'blob' }),
+    api.getBlob(`/audit/export`, params),
 };
 
 export const healthApi = {

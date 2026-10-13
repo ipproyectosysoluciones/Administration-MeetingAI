@@ -1,4 +1,5 @@
-import { Fragment, ReactNode, useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { X } from 'lucide-react';
@@ -69,7 +70,7 @@ export function Modal({
       document.removeEventListener('keydown', handleKeyDown);
       previousActiveElement.current?.focus();
     };
-  }, [isOn, onClose, closeOnEscape]);
+  }, [isOpen, onClose, closeOnEscape]);
 
   if (!isOpen) return null;
 
@@ -141,7 +142,8 @@ export function Modal({
           <div className="p-6">{children}</div>
         </div>
       </div>
-    </Fragment>
+    </Fragment>,
+    document.body
   );
 }
 

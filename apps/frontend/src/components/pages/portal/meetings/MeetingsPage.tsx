@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, Calendar, Users, MoreVertical, Edit, Trash2, Eye, Download, Clock, MapPin, UserCheck } from 'lucide-react';
 import { PortalLayout } from '@/components/layout/PortalLayout';
 import { Button } from '@/components/ui/Button';
@@ -42,6 +42,7 @@ const modalityIcons: Record<string, React.ReactNode> = {
 };
 
 export default function MeetingsPage() {
+  const navigate = useNavigate();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -241,7 +242,7 @@ export default function MeetingsPage() {
                 placeholder="Filtrar por estado"
               />
               <Select
-                value={pageSize}
+                value={String(pageSize)}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
                 options={[
                   { value: '10', label: '10 por página' },

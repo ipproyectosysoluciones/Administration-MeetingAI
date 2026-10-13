@@ -9,12 +9,12 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Table, Pagination } from '@/components/ui/Table';
 import { Badge, StatusBadge } from '@/components/ui/Badge';
 import { Dropdown } from '@/components/ui/Dropdown';
+import type { DropdownItem } from '@/components/ui/Dropdown';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { meetingsApi, minutesApi, transcriptionsApi } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { MinutesService } from '@/lib/minutes';
 
 interface Minute {
   id: string;
@@ -58,6 +58,8 @@ export default function MinutesPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [generatingMeeting, setGeneratingMeeting] = useState<any>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingMinute, setEditingMinute] = useState<any>(null);
   const [viewingMinute, setViewingMinute] = useState<any>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deletingMinute, setDeletingMinute] = useState<any>(null);
@@ -128,6 +130,22 @@ export default function MinutesPage() {
     } catch (error) {
       console.error('Error archiving minutes:', error);
     }
+  };
+
+  const handleCreate = async (data: any) => {
+    try {
+      await minutesApi.create(editingMinute?.meeting_id || '', data);
+      setShowCreateModal(false);
+      setEditingMinute(null);
+    } catch (error) { console.error('Error creating minute:', error); }
+  };
+
+  const handleUpdate = async (minuteId: string, data: any) => {
+    try {
+      await minutesApi.update(minuteId, data);
+      setShowCreateModal(false);
+      setEditingMinute(null);
+    } catch (error) { console.error('Error updating minute:', error); }
   };
 
   const handleDelete = async () => {
@@ -203,8 +221,8 @@ export default function MinutesPage() {
       header: 'Acciones',
       accessor: 'id',
       render: (_: any, row: any) => {
-        const buildItems = () => {
-          const items = [
+        const buildItems = (): DropdownItem[] => {
+          const items: DropdownItem[] = [
             { label: 'Ver', onClick: () => openViewModal(row), icon: <Eye className="w-4 h-4" /> },
             { label: 'Historial de versiones', onClick: () => navigate(`/portal/minutes/${row.id}/versions`), icon: <Clock className="w-4 h-4" /> },
             { divider: true },
@@ -267,7 +285,6 @@ export default function MinutesPage() {
                   placeholder="Buscar actas..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por título..."
                 />
               </div>
               <Select
@@ -284,7 +301,7 @@ export default function MinutesPage() {
                 placeholder="Filtrar por estado"
               />
               <Select
-                value={pageSize}
+                value={String(pageSize)}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
                 options={[
                   { value: '10', label: '10 por página' },

@@ -1,4 +1,5 @@
-import { Fragment, ReactNode, useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 
@@ -11,7 +12,7 @@ interface TooltipProps {
 
 export function Tooltip({ content, children, position = 'top', delay = 200 }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const triggerRef = useRef<HTMLElement>(null);
 
   const show = () => {
@@ -23,7 +24,7 @@ export function Tooltip({ content, children, position = 'top', delay = 200 }: To
     setIsVisible(false);
   };
 
-  const handleKeyDown = (e: KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
     if (e.key === 'Escape') setIsVisible(false);
   };
 

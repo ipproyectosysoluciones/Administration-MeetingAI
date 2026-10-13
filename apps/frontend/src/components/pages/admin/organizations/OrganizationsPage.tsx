@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Building, Users, MoreVertical, Edit, Trash2, Edit3, Shield, X } from 'lucide-react';
+import { Plus, Search, Filter, Building, Users, MoreVertical, Edit, Trash2, Edit3, Shield, X, Eye } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -213,7 +213,7 @@ export default function AdminOrganizationsPage() {
                 placeholder="Filtrar por estado"
               />
               <Select
-                value={pageSize}
+                value={String(pageSize)}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
                 options={[
                   { value: '10', label: '10 por página' },
