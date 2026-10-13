@@ -2,6 +2,12 @@
 
 SKIP-LOCKED claim pattern: one worker claims exactly one pending job.
 Retry path re-resets to pending with exponential backoff or marks failed permanently.
+
+Job Types:
+- process_recording: audio/video processing
+- transcribe_audio: Speech-to-Text (faster-whisper)
+- process_ocr: OCR processing (Tesseract/OCRmyPDF)
+- ai_process_meeting: AI summarization (decisions, tasks, summary)
 """
 
 from __future__ import annotations
@@ -14,6 +20,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import APIError
 from app.modules.recordings.models import Job
+
+# Job type constants
+JOB_TYPE_TRANSCRIBE = "transcribe_audio"
+JOB_TYPE_OCR = "process_ocr"
+JOB_TYPE_AI_PROCESS = "ai_process_meeting"
+JOB_TYPE_PROCESS_RECORDING = "process_recording"
 
 _WAITING_STATUSES = ("pending",)
 
@@ -41,7 +53,64 @@ class JobService:
         await session.flush()
         return job
 
-    async def claim_next(self, session: AsyncSession, worker_id: str) -> Job | None:
+    # Convenience methods for specific job types
+    async def enqueue_transcription(
+        self,
+        session: AsyncSession,
+        *,
+        recording_id: str,
+        meeting_id: str | None,
+        language: str = "es",
+        diarize: bool = True,
+        run_at: datetime | None = None,
+    ):
+        return await self.enqueue(
+            session,
+            type="transcribe_audio",
+            payload={
+                "recording_id": recording_id,
+                "meeting_id": meeting_id,
+                "language": language,
+                "diarize": diarize,
+            },
+            run_at=run_at,
+        )
+
+    async def enqueue_ocr(
+        self,
+        session: AsyncSession,
+        *,
+        document_id: str,
+        run_at: datetime | None = None,
+    ):
+        return await self.enqueue(
+            session,
+            type="process_ocr",
+            payload={"document_id": document_id},
+            run_at=run_at,
+        )
+
+    async def enqueue_ai_processing(
+        self,
+        session: AsyncSession,
+        *,
+        meeting_id: str,
+        transcription_id: str,
+        document_ids: list[str] | None = None,
+        run_at: datetime | None = None,
+    ):
+        return await self.enqueue(
+            session,
+            type="ai_process_meeting",
+            payload={
+                "meeting_id": meeting_id,
+                "transcription_id": transcription_id,
+                "document_ids": document_ids or [],
+            },
+            run_at=run_at,
+        )
+
+    async def claim_next(self, session: AsyncSession, worker_id: str):
         """Claim the oldest due pending job with FOR UPDATE SKIP LOCKED."""
         stmt = (
             select(Job)
@@ -67,7 +136,7 @@ class JobService:
 
     async def claim_batch(
         self, session: AsyncSession, worker_id: str, limit: int = 10
-    ) -> list[Job]:
+    ) -> list:
         """Claim up to ``limit`` pending jobs with FOR UPDATE SKIP LOCKED."""
         stmt = (
             select(Job)
