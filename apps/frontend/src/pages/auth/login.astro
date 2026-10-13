@@ -1,0 +1,124 @@
+---
+import AuthLayout from '@/layouts/AuthLayout.astro';
+---
+
+<AuthLayout title="Iniciar Sesión">
+  <div class="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
+    <div class="max-w-md w-full">
+      <div class="text-center mb-8">
+        <a href="/" class="inline-flex items-center gap-2 mb-8">
+          <svg class="w-10 h-10 text-primary-600" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          <span class="text-2xl font-bold text-gray-900 dark:text-white">ReunionAI</span>
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Bienvenido de nuevo</h1>
+        <p class="text-gray-600 dark:text-gray-400">Inicia sesión para acceder a tu portal</p>
+      </div>
+
+      <div class="card p-8">
+        <form id="login-form" class="space-y-6" novalidate>
+          <div>
+            <label for="email" class="label">Correo electrónico</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              autoComplete="email"
+              required
+              class="input"
+              placeholder="usuario@ejemplo.com"
+              aria-describedby="email-error"
+            />
+            <p id="email-error" class="mt-1 text-sm text-red-600 dark:text-red-400 hidden" role="alert"></p>
+          </div>
+
+          <div>
+            <label for="password" class="label">Contraseña</label>
+            <div class="relative">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                autoComplete="current-password"
+                required
+                class="input pr-12"
+                placeholder="••••••••"
+                aria-describedby="password-error"
+              />
+              <button
+                type="button"
+                id="toggle-password"
+                class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label="Mostrar/ocultar contraseña"
+              >
+                <svg id="eye-open" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 5.943 7.523 0 12 0c4.478 0 8.268 5.943 9.542 13 .597.914 1.157 1.89 1.67 2.937"/>
+                </svg>
+                <svg id="eye-closed" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-5.943-9.543-13a13.156 13.156 0 01.597-.92"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 20h.01M12 12h.01M12 8h.01"/>
+                </svg>
+              </button>
+            </div>
+            <p id="password-error" class="mt-1 text-sm text-red-600 dark:text-red-400 hidden" role="alert"></p>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="remember" name="remember" class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+              <span class="text-sm text-gray-600 dark:text-gray-400">Recordarme</span>
+            </label>
+            <a href="/auth/forgot-password" class="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
+              ¿Olvidaste tu contraseña?
+            </a>
+          </div>
+
+          <button type="submit" class="btn-primary w-full" id="submit-btn">
+            <span id="btn-text">Iniciar Sesión</span>
+            <svg id="btn-loader" class="w-5 h-5 animate-spin hidden" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          </button>
+        </form>
+
+        <div class="mt-6">
+          <div class="relative">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-gray-200 dark:border-gray-700"></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+              <span class="px-2 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400">O continua con</span>
+            </div>
+          </div>
+
+          <div class="mt-6 grid grid-cols-2 gap-3">
+            <button type="button" class="btn-outline" aria-label="Iniciar sesión con Google">
+              <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23c4.97 0 9.05-4.02 9.05-9.02.02-.42-.03-.84-.07-1.24H24v.01c-.79 1.96-2.2 3.59-4.25 4.7-2.24 1.26-4.87 1.94-7.68 1.94-1.13 0-2.21-.16-3.24-.45v.05c.22.71.49 1.4.8 2.08.51-.51 1.09-1.0 1.71-1.44v.02z"/>
+              </svg>
+              <span>Google</span>
+            </button>
+            <button type="button" class="btn-outline" aria-label="Iniciar sesión con GitHub">
+              <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 0c-6.626 0-12 4.874-12 10.874 0 4.829 3.163 7.465 7.548 8.64.55.092.752-.212.752-.466 0-.23-.008-.84-.013-1.254-3.057.528-3.703-1.08-3.703-1.08-.504-1.252-1.233-1.587-1.233-1.587-1.007-.672.076-.66.386-.66.386 1.11.387 1.697 1.003 1.697 1.003.985 1.63 2.57 1.159 3.196.878.095-.7.2-1.171.36-1.444-3.574-.404-7.306-1.784-7.306-7.938 0-1.725.62-3.123 1.648-4.223-.165-.388-.717-1.946.157-4.05 0 0 1.341-.418 4.301 1.624A12.06 12.06 0 0112 6.66c1.423.205 2.846.312 4.285.312 1.438 0 2.86-.109 4.285-.312 3.167-2.044 4.394-1.624 4.394-1.624.516.685.726 1.539.379 1.81-.165.423-.72 2.325.158 4.05 1.026 1.1.624 2.52 1.648 1.648 4.223 0 6.216-3.944 7.866-7.31 7.937.51.288.96 1.107.96 2.24v3.28c0 .319.202.518.752.465C20.37 20.98 24 17.335 24 12.07c0-6.903-7.5-12.5-12-12.5S0 5.173 0 12.07c0 4.854 3.54 8.984 8.42 9.91v.12c0 .325.01.65.01.98 0 .71-.428 1.145-1.01.997z"/>
+              </svg>
+              <span>GitHub</span>
+            </button>
+          </div>
+        </div>
+
+        <p class="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
+          ¿No tienes cuenta?{' '}
+          <a href="/auth/register" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium">
+            Regístrate
+          </a>
+        </p>
+      </div>
+    </div>
+  </div>
+</AuthLayout>
