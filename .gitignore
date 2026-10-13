@@ -244,3 +244,6 @@ odd/
 
 # kankaku extension runtime state
 .kankaku/
+
+# CodeGraph index
+.codegraph/
