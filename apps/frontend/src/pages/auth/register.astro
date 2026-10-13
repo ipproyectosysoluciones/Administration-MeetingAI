@@ -1,0 +1,167 @@
+---
+import AuthLayout from '@/layouts/AuthLayout.astro';
+---
+
+<AuthLayout title="Registrarse">
+  <div class="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
+    <div class="max-w-md w-full">
+      <div class="text-center mb-8">
+        <a href="/" class="inline-flex items-center gap-2 mb-8">
+          <svg class="w-10 h-10 text-primary-600" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          <span class="text-2xl font-bold text-gray-900 dark:text-white">ReunionAI</span>
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Crear tu cuenta</h1>
+        <p class="text-gray-600 dark:text-gray-400">Registra tu organización y comienza a gestionar reuniones</p>
+      </div>
+
+      <div class="card p-8">
+        <form id="register-form" class="space-y-6" novalidate>
+          <div>
+            <label for="full_name" class="label">Nombre completo</label>
+            <input
+              type="text"
+              id="full_name"
+              name="full_name"
+              autoComplete="name"
+              required
+              class="input"
+              placeholder="Juan Pérez"
+              aria-describedby="full_name-error"
+            />
+            <p id="full_name-error" class="mt-1 text-sm text-red-600 dark:text-red-400 hidden" role="alert"></p>
+          </div>
+
+          <div>
+            <label for="email" class="label">Correo electrónico</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              autoComplete="email"
+              required
+              class="input"
+              placeholder="usuario@ejemplo.com"
+              aria-describedby="email-error"
+            />
+            <p id="email-error" class="mt-1 text-sm text-red-600 dark:text-red-400 hidden" role="alert"></p>
+          </div>
+
+          <div>
+            <label for="organization_name" class="label">Nombre de la organización</label>
+            <input
+              type="text"
+              id="organization_name"
+              name="organization_name"
+              required
+              class="input"
+              placeholder="Mi Organización"
+              aria-describedby="organization_name-error"
+            />
+            <p id="organization_name-error" class="mt-1 text-sm text-red-600 dark:text-red-400 hidden" role="alert"></p>
+          </div>
+
+          <div>
+            <label for="organization_slug" class="label">Slug de la organización</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 dark:text-gray-400">
+                https://reunionai.com/org/
+              </span>
+              <input
+                type="text"
+                id="organization_slug"
+                name="organization_slug"
+                required
+                class="input pl-20"
+                placeholder="mi-organizacion"
+                pattern="[a-z0-9-]+"
+                aria-describedby="organization_slug-error"
+              />
+            </div>
+            <p id="organization_slug-error" class="mt-1 text-sm text-red-600 dark:text-red-400 hidden" role="alert"></p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Solo letras minúsculas, números y guiones. Ej: mi-organizacion</p>
+          </div>
+
+          <div>
+            <label for="password" class="label">Contraseña</label>
+            <div class="relative">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                class="input pr-12"
+                placeholder="••••••••"
+                aria-describedby="password-error password-hint"
+              />
+              <button
+                type="button"
+                id="toggle-password"
+                class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label="Mostrar/ocultar contraseña"
+              >
+                <svg id="eye-open" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 5.943 7.523 0 12 0c4.478 0 8.268 5.943 9.542 13 .597.914 1.157 1.89 1.67 2.937"/>
+                </svg>
+                <svg id="eye-closed" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-5.943-9.543-13a13.156 13.156 0 01.597-.92"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 20h.01M12 12h.01M12 8h.01"/>
+                </svg>
+              </button>
+            </div>
+            <p id="password-error" class="mt-1 text-sm text-red-600 dark:text-red-400 hidden" role="alert"></p>
+            <p id="password-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">Mínimo 8 caracteres</p>
+          </div>
+
+          <div>
+            <label for="confirm_password" class="label">Confirmar contraseña</label>
+            <input
+              type="password"
+              id="confirm_password"
+              name="confirm_password"
+              autoComplete="new-password"
+              required
+              class="input"
+              placeholder="••••••••"
+              aria-describedby="confirm_password-error"
+            />
+            <p id="confirm_password-error" class="mt-1 text-sm text-red-600 dark:text-red-400 hidden" role="alert"></p>
+          </div>
+
+          <div class="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="terms"
+              name="terms"
+              required
+              class="w-4 h-4 mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            <label for="terms" class="text-sm text-gray-600 dark:text-gray-400">
+              Acepto los <a href="#" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">Términos y Condiciones</a> y la <a href="#" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">Política de Privacidad</a>
+            </label>
+          </div>
+
+          <button type="submit" class="btn-primary w-full" id="submit-btn">
+            <span id="btn-text">Crear cuenta</span>
+            <svg id="btn-loader" class="w-5 h-5 animate-spin hidden" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          </button>
+        </form>
+
+        <p class="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
+          ¿Ya tienes cuenta?{' '}
+          <a href="/auth/login" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium">
+            Inicia sesión
+          </a>
+        </p>
+      </div>
+    </div>
+  </div>
+</AuthLayout>
