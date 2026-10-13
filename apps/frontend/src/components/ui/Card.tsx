@@ -1,4 +1,5 @@
-import { HTMLAttributes, forwardRef } from 'react';
+import { forwardRef } from 'react';
+import type { HTMLAttributes } from 'react';
 import { clsx } from 'clsx';
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
@@ -32,7 +33,6 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
           hover && 'transition-shadow duration-200 hover:shadow-md',
           className
         )}
-        ref={ref}
         {...props}
       >
         {children}

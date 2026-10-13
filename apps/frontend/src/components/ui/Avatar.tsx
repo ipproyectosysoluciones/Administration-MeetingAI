@@ -1,5 +1,6 @@
 import { clsx } from 'clsx';
-import { forwardRef, HTMLAttributes } from 'react';
+import type { HTMLAttributes } from 'react';
+import { forwardRef } from 'react';
 
 export interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
   src?: string | null;
@@ -87,8 +88,7 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
           'bg-gray-100 dark:bg-gray-700',
           'flex-shrink-0'
         )}
-        ref={ref}
-      >
+        >
         {hasImage ? (
           <img
             src={src}

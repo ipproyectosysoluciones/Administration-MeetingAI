@@ -1,4 +1,5 @@
-import { forwardRef, InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { forwardRef } from 'react';
+import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { clsx } from 'clsx';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -26,7 +27,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           className={clsx('input', error && 'border-red-500 focus:border-red-500 focus:ring-red-500/20', className)}
           aria-invalid={error ? 'true' : 'false'}
-          aria-describedby={clsx(error && errorId, props.hint && hintId)}
+          aria-describedby={clsx(error && errorId, hint && hintId)}
           aria-required={props.required}
           {...props}
         />
@@ -35,9 +36,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {error}
           </p>
         )}
-        {props.hint && !error && (
+        {hint && !error && (
           <p id={hintId} className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {props.hint}
+            {hint}
           </p>
         )}
       </div>
@@ -72,7 +73,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           id={inputId}
           className={clsx('input min-h-[100px] resize-y', error && 'border-red-500 focus:border-red-500 focus:ring-red-500/20', className)}
           aria-invalid={error ? 'true' : 'false'}
-          aria-describedby={clsx(error && errorId, props.hint && hintId)}
+          aria-describedby={clsx(error && errorId, hint && hintId)}
           aria-required={props.required}
           {...props}
         />
@@ -81,9 +82,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             {error}
           </p>
         )}
-        {props.hint && !error && (
+        {hint && !error && (
           <p id={hintId} className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {props.hint}
+            {hint}
           </p>
         )}
       </div>

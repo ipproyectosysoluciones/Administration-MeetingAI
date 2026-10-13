@@ -1,11 +1,12 @@
-import { Fragment, ReactNode, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 
-interface DropdownItem {
-  label: string;
-  onClick: () => void;
+export interface DropdownItem {
+  label?: string;
+  onClick?: () => void;
   icon?: React.ReactNode;
   disabled?: boolean;
   danger?: boolean;
@@ -14,7 +15,7 @@ interface DropdownItem {
 
 interface DropdownProps {
   trigger: ReactNode;
-  items: DropdownItem[];
+  items: (DropdownItem | false | null | undefined)[];
   align?: 'left' | 'right';
   triggerClassName?: string;
   menuClassName?: string;
@@ -61,7 +62,7 @@ export function Dropdown({
   const toggle = () => setIsOpen(!isOpen);
 
   return (
-    <div className="relative inline-block" ref={triggerRef}>
+    <div className="relative inline-block">
       <button
         ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
@@ -74,7 +75,7 @@ export function Dropdown({
         type="button"
       >
         {trigger}
-        <ChevronDown className={clsx('w-4 h-4 transition-transform', 'duration-200')} />
+        <ChevronDown className="w-4 h-4 transition-transform duration-200" />
       </button>
 
       {isOpen && createPortal(
@@ -89,7 +90,7 @@ export function Dropdown({
           role="menu"
           aria-orientation="vertical"
         >
-          {items.map((item, index) => (
+          {items.filter((item): item is DropdownItem => Boolean(item)).map((item, index) => (
             item.divider ? (
               <hr key={`divider-${index}`} className="my-1 border-gray-200 dark:border-gray-700" />
             ) : (
@@ -97,13 +98,10 @@ export function Dropdown({
                 key={index}
                 onClick={() => {
                   if (!item.disabled) {
-                    item.onClick();
-                    // Don't close immediately if we want to allow multiple selections
-                    // setIsOpen(false);
+                    item.onClick?.();
                   }
                 }}
                 disabled={item.disabled}
-                dangerouslySetInnerHTML={{ __html: '' }}
                 className={clsx(
                   'w-full px-4 py-2 text-left text-sm flex items-center gap-2',
                   'hover:bg-gray-100 dark:hover:bg-gray-700',
@@ -125,7 +123,8 @@ export function Dropdown({
               </button>
             )
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -139,7 +138,7 @@ interface SelectOption {
 
 interface SelectProps {
   value: string;
-  onChange: (value: string) => void;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   options: SelectOption[];
   placeholder?: string;
   label?: string;
@@ -175,7 +174,7 @@ export function Select({
       <select
         id={selectId}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
         disabled={disabled}
         required={required}
         aria-invalid={!!error}

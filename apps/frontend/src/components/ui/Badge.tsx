@@ -1,4 +1,5 @@
-import { HTMLAttributes, forwardRef } from 'react';
+import { forwardRef } from 'react';
+import type { HTMLAttributes } from 'react';
 import { clsx } from 'clsx';
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
@@ -35,8 +36,7 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
           sizes[size],
           className
         )}
-        ref={ref}
-      >
+        >
         {dot && <span className={clsx('w-1.5 h-1.5 rounded-full', 'bg-current')} />}
         {icon}
         {children}

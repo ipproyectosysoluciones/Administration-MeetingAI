@@ -16,13 +16,14 @@ class ApiError extends Error {
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
+  responseType?: 'json' | 'blob';
 }
 
 async function request<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { params, headers, ...fetchOptions } = options;
+  const { params, headers, responseType, ...fetchOptions } = options;
   const { accessToken } = useAuthStore.getState();
 
   // Build URL with query params
@@ -80,6 +81,10 @@ async function request<T>(
     return undefined as T;
   }
 
+  if (responseType === 'blob') {
+    return response.blob() as Promise<T>;
+  }
+
   return response.json();
 }
 
@@ -87,10 +92,14 @@ export const api = {
   get: <T>(endpoint: string, params?: Record<string, string | number | boolean | undefined>) =>
     request<T>(endpoint, { method: 'GET', params }),
 
-  post: <T>(endpoint: string, data?: unknown) =>
+  getBlob: (endpoint: string, params?: Record<string, string | number | boolean | undefined>) =>
+    request<Blob>(endpoint, { method: 'GET', params, responseType: 'blob' }),
+
+  post: <T>(endpoint: string, data?: unknown, headers?: Record<string, string>) =>
     request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
+      headers,
     }),
 
   patch: <T>(endpoint: string, data?: unknown) =>

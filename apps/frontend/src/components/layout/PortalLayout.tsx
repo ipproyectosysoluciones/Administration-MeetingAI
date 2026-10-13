@@ -1,4 +1,7 @@
-import { Fragment, ReactNode } from 'react';
+import { Fragment, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Link, useLocation, NavLink } from 'react-router-dom';
 import { LayoutDashboard, Users, Calendar, FileText, Settings, LogOut, Menu, X, ChevronLeft, ChevronRight, Bell, Search, Moon, Sun, User, HelpCircle } from 'lucide-react';
@@ -13,6 +16,7 @@ interface PortalLayoutProps {
 }
 
 export function PortalLayout({ children }: PortalLayoutProps) {
+  const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, hasPermission } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -210,7 +214,6 @@ export function PortalLayout({ children }: PortalLayoutProps) {
                   type="search"
                   placeholder="Buscar..."
                   className="w-64 pl-10 pr-4 py-2 text-sm bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                  placeholder="Buscar..."
                 />
               </div>
 

@@ -263,7 +263,7 @@ export default function AdminAuditPage() {
                 />
               </div>
               <Select
-                value={pageSize}
+                value={String(pageSize)}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
                 options={[
                   { value: '25', label: '25 por página' },
