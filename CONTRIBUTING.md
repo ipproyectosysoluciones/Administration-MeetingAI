@@ -12,6 +12,7 @@ Conventional Commits only: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `
 
 - Tests: `cd apps/backend && TEST_DATABASE_URL=postgresql+asyncpg://reunionai:reunionai@localhost:5433/reunionai .venv/bin/pytest -q`
 - Lint/type: `.venv/bin/ruff check . && .venv/bin/ruff format --check . && .venv/bin/mypy app`
+- These three checks are enforced at zero by the CI `backend` job (`.github/workflows/ci.yml`): a PR that fails `ruff check`, `ruff format --check`, or `mypy app` cannot merge. The pre-existing backlog was cleared in issue #171 — keep new changes at zero.
 
 ## Frontend (apps/frontend)
 
