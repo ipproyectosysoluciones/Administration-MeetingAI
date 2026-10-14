@@ -7,7 +7,7 @@ export const minutesApi = {
     page_size?: number;
     status?: string;
     q?: string;
-  }) => api.get<MinuteListResponse>('/meetings/:meetingId/minutes', params),
+  }) => api.get<MinuteListResponse>('/minutes', params),
 
   get: (minuteId: string) => api.get<MinuteResponse>(`/minutes/${minuteId}`),
 

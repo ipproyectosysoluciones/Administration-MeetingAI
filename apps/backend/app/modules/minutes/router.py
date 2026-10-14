@@ -53,6 +53,26 @@ def _tenant(auth: AuthContext) -> uuid.UUID:
     return auth.tenant_id
 
 
+@router.get("/minutes", response_model=MinuteListResponse)
+async def list_global_minutes(
+    request: Request,
+    db: Db,
+    auth: MinuteRead,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=_MAX_PAGE_SIZE),
+    status: str | None = None,
+    q: str | None = None,
+) -> MinuteListResponse:
+    return await _service().list_for_tenant(
+        db,
+        tenant_id=_tenant(auth),
+        page=page,
+        page_size=page_size,
+        status=status,
+        q=q,
+    )
+
+
 @router.get("/meetings/{meeting_id}/minutes", response_model=MinuteListResponse)
 async def list_meeting_minutes(
     meeting_id: uuid.UUID,
@@ -114,6 +134,14 @@ async def generate_minute_draft(meeting_id: uuid.UUID, db: Db, auth: MinuteWrite
     )
     await db.commit()
     return MinuteResponse.model_validate(row)
+
+
+@router.delete("/minutes/{minute_id}", status_code=204)
+async def delete_minute(
+    minute_id: uuid.UUID, db: Db, auth: MinuteWrite
+) -> None:
+    await _service().delete(db, minute_id=minute_id, tenant_id=_tenant(auth), actor=auth.user_id)
+    await db.commit()
 
 
 @router.post("/minutes/{minute_id}/review", response_model=MinuteResponse)

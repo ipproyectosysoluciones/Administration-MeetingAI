@@ -35,6 +35,24 @@ def _tenant(auth: AuthContext) -> uuid.UUID:
     return auth.tenant_id
 
 
+@router.get("/transcriptions", response_model=TranscriptionListResponse)
+async def list_tenant_transcriptions(
+    request: Request,
+    db: Db,
+    auth: TranscriptionRead,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=_MAX_PAGE_SIZE),
+    status: str | None = None,
+) -> TranscriptionListResponse:
+    return await _service(request).list_for_tenant(
+        db,
+        tenant_id=_tenant(auth),
+        page=page,
+        page_size=page_size,
+        status=status,
+    )
+
+
 @router.get("/transcriptions/{transcription_id}", response_model=TranscriptionResponse)
 async def get_transcription(
     transcription_id: uuid.UUID,
