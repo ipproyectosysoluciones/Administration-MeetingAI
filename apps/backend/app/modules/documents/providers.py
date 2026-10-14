@@ -47,9 +47,11 @@ class LocalStorageProvider(DocumentStorageProvider):
 
     async def retrieve(self, path: str) -> BinaryIO:
         import aiofiles
+
         return await aiofiles.open(path, "rb")
 
     async def delete(self, path: str) -> None:
         import os
+
         if os.path.exists(path):
             os.remove(path)

@@ -72,7 +72,9 @@ class Document(Base):
     ocr_text: Mapped[str | None] = mapped_column(Text)
     ocr_confidence: Mapped[float | None] = mapped_column(Float)
     ocr_status: Mapped[OcrStatus] = mapped_column(
-        ENUM(OcrStatus, name="ocr_status", create_type=False), nullable=False, default=OcrStatus.PENDING
+        ENUM(OcrStatus, name="ocr_status", create_type=False),
+        nullable=False,
+        default=OcrStatus.PENDING,
     )
     ocr_error: Mapped[str | None] = mapped_column(Text)
     pages: Mapped[int | None] = mapped_column(Integer)
@@ -107,7 +109,9 @@ class DocumentVersion(Base):
     ocr_text: Mapped[str | None] = mapped_column(Text)
     ocr_confidence: Mapped[float | None] = mapped_column(Float)
     ocr_status: Mapped[OcrStatus] = mapped_column(
-        ENUM(OcrStatus, name="ocr_status", create_type=False), nullable=False, default=OcrStatus.PENDING
+        ENUM(OcrStatus, name="ocr_status", create_type=False),
+        nullable=False,
+        default=OcrStatus.PENDING,
     )
     pages: Mapped[int | None] = mapped_column(Integer)
     metadata_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
@@ -118,6 +122,4 @@ class DocumentVersion(Base):
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
 
-    __table_args__ = (
-        CheckConstraint("version >= 1", name="ck_document_versions_version_min"),
-    )
+    __table_args__ = (CheckConstraint("version >= 1", name="ck_document_versions_version_min"),)

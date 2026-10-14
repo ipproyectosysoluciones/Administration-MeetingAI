@@ -13,7 +13,9 @@ from app.core.middleware.rate_limit import InMemoryRateLimiter
 from app.core.security import JWTService, PasswordHasher
 from app.modules.audit.router import router as audit_router
 from app.modules.auth.router import router as auth_router
-from app.modules.documents.providers import LocalStorageProvider
+from app.modules.documents.providers import (
+    LocalStorageProvider as DocumentLocalStorageProvider,
+)
 from app.modules.documents.router import router as documents_router
 from app.modules.documents.service import DocumentService
 from app.modules.jobs.router import router as jobs_router
@@ -26,7 +28,9 @@ from app.modules.organizations.router import router as organizations_router
 from app.modules.rbac.assignments_router import router as rbac_assignments_router
 from app.modules.rbac.resolver import DBAuthorizationResolver
 from app.modules.rbac.roles_router import router as rbac_roles_router
-from app.modules.recordings.providers import LocalStorageProvider
+from app.modules.recordings.providers import (
+    LocalStorageProvider as RecordingLocalStorageProvider,
+)
 from app.modules.recordings.router import router as recordings_router
 from app.modules.recordings.service import RecordingService
 from app.modules.transcription.router import router as transcriptions_router
@@ -54,12 +58,10 @@ def create_app(
     app.state.rate_limiter = InMemoryRateLimiter()
     app.state.authorization_resolver = DBAuthorizationResolver(session_factory)
     app.state.recording_service = RecordingService(
-        storage=LocalStorageProvider(), jobs=JobService()
+        storage=RecordingLocalStorageProvider(), jobs=JobService()
     )
     app.state.transcription_service = TranscriptionService()
-    app.state.document_service = DocumentService(
-        storage=LocalStorageProvider()
-    )
+    app.state.document_service = DocumentService(storage=DocumentLocalStorageProvider())
 
     # JWT keys may legitimately be absent (e.g. the health-check surface in tests);
     # auth endpoints raise a clean JWT_NOT_CONFIGURED error in that case.

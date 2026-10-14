@@ -321,7 +321,9 @@ async def forgot_password(
 ) -> dict[str, str]:
     settings: Settings = request.app.state.settings
     _check_rate_limit(request, "forgot", _ip(request) or "unknown", settings.rate_limit_forgot_ip)
-    await _service(request).forgot_password(db, payload.email.strip().lower(), _ip(request), _user_agent(request))
+    await _service(request).forgot_password(
+        db, payload.email.strip().lower(), _ip(request), _user_agent(request)
+    )
     return {"message": "If the email exists, a password reset link has been sent"}
 
 
@@ -333,5 +335,7 @@ async def reset_password(
 ) -> dict[str, str]:
     settings: Settings = request.app.state.settings
     _check_rate_limit(request, "reset", _ip(request) or "unknown", settings.rate_limit_reset_ip)
-    await _service(request).reset_password(db, payload.token, payload.password, _ip(request), _user_agent(request))
+    await _service(request).reset_password(
+        db, payload.token, payload.password, _ip(request), _user_agent(request)
+    )
     return {"message": "Password has been reset successfully"}

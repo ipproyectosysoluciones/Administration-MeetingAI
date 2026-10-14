@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import APIError
 from app.modules.ai.service import AIService
-from app.modules.ocr.service import OCRService
 from app.modules.recordings.models import Job
 from app.modules.transcription import FasterWhisperProvider, SpeechToTextProvider
 from app.modules.transcription.service import TranscriptionService
@@ -38,9 +37,10 @@ class TranscriptionWorker:
 
         # Fetch recording
         from app.modules.recordings.models import Recording
-        recording = (await session.execute(
-            select(Recording).where(Recording.id == uuid.UUID(recording_id))
-        )).scalar_one_or_none()
+
+        recording = (
+            await session.execute(select(Recording).where(Recording.id == uuid.UUID(recording_id)))
+        ).scalar_one_or_none()
         if not recording:
             raise APIError(404, "RECORDING_NOT_FOUND", f"Recording {recording_id} not found")
 
@@ -49,6 +49,7 @@ class TranscriptionWorker:
 
         # Create transcription draft
         from app.modules.transcription.service import TranscriptionService
+
         service = TranscriptionService(self._provider)
         transcript = await service.create_draft(
             session,
@@ -69,6 +70,7 @@ class TranscriptionWorker:
         # This would download from the storage provider
         # For now, return a mock handle
         import io
+
         return io.BytesIO(b"mock audio data")
 
 
@@ -89,9 +91,10 @@ class OCRWorker:
 
         # Fetch document
         from app.modules.documents.models import Document
-        doc = (await session.execute(
-            select(Document).where(Document.id == uuid.UUID(document_id))
-        )).scalar_one_or_none()
+
+        doc = (
+            await session.execute(select(Document).where(Document.id == uuid.UUID(document_id)))
+        ).scalar_one_or_none()
         if not doc:
             raise APIError(404, "DOCUMENT_NOT_FOUND", f"Document {document_id} not found")
 
@@ -99,7 +102,6 @@ class OCRWorker:
         file_handle = await self._download_document(doc.file_path)
 
         # Run OCR
-        ocr_service = OCRService()
         result = await self._ocr_provider.process(file_handle, doc.mime_type)
 
         # Update document
@@ -129,30 +131,43 @@ class AIProcessingWorker:
 
         # Fetch meeting
         from app.modules.meetings.models import Meeting
-        meeting = (await session.execute(
-            select(Meeting).where(Meeting.id == uuid.UUID(meeting_id))
-        )).scalar_one_or_none()
+
+        meeting = (
+            await session.execute(select(Meeting).where(Meeting.id == uuid.UUID(meeting_id)))
+        ).scalar_one_or_none()
         if not meeting:
             raise APIError(404, "MEETING_NOT_FOUND", f"Meeting {meeting_id} not found")
 
         # Fetch transcription
         from app.modules.transcription.models import Transcription
-        transcript = (await session.execute(
-            select(Transcription).where(Transcription.id == uuid.UUID(transcription_id))
-        )).scalar_one_or_none()
+
+        transcript = (
+            await session.execute(
+                select(Transcription).where(Transcription.id == uuid.UUID(transcription_id))
+            )
+        ).scalar_one_or_none()
         if not transcript:
-            raise APIError(404, "TRANSCRIPTION_NOT_FOUND", f"Transcription {transcription_id} not found")
+            raise APIError(
+                404, "TRANSCRIPTION_NOT_FOUND", f"Transcription {transcription_id} not found"
+            )
 
         # Fetch documents
         from app.modules.documents.models import Document
+
         docs = []
         if document_ids:
-            docs = (await session.execute(
-                select(Document).where(
-                    Document.id.in_([uuid.UUID(d) for d in document_ids]),
-                    Document.tenant_id == meeting.organization_id,
+            docs = (
+                (
+                    await session.execute(
+                        select(Document).where(
+                            Document.id.in_([uuid.UUID(d) for d in document_ids]),
+                            Document.tenant_id == meeting.organization_id,
+                        )
+                    )
                 )
-            )).scalars().all()
+                .scalars()
+                .all()
+            )
 
         # Run AI processing
         ai_service = AIService(self._provider)

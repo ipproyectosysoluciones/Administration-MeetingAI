@@ -1,4 +1,5 @@
 """Minutes: listado global + delete por tenant — issue #119."""
+
 from __future__ import annotations
 
 import uuid
@@ -10,8 +11,13 @@ from tests.integration.minutes.conftest import api, register_admin, seed_meeting
 
 
 async def _create_draft(app: FastAPI, meeting_id: uuid.UUID, token: str) -> dict:
-    resp = await api(app, "POST", f"/api/v1/meetings/{meeting_id}/minutes",
-                     json={"title": "Acta", "content": "c"}, token=token)
+    resp = await api(
+        app,
+        "POST",
+        f"/api/v1/meetings/{meeting_id}/minutes",
+        json={"title": "Acta", "content": "c"},
+        token=token,
+    )
     assert resp.status_code == 201, resp.text
     return resp.json()
 
@@ -33,7 +39,9 @@ async def test_list_global_minutes(app: FastAPI, session_factory: async_sessionm
     assert got2.status_code == 200, got2.text
 
 
-async def test_list_global_minutes_filters(app: FastAPI, session_factory: async_sessionmaker) -> None:
+async def test_list_global_minutes_filters(
+    app: FastAPI, session_factory: async_sessionmaker
+) -> None:
     add = await register_admin(app)
     token = add["access_token"]
     tenant_id = add["user"]["tenant_id"]
@@ -55,12 +63,15 @@ async def test_delete_minute(app: FastAPI, session_factory: async_sessionmaker) 
     assert dep.status_code == 204, dep.text
 
 
-async def test_delete_minute_cross_tenant(app: FastAPI, session_factory: async_sessionmaker) -> None:
+async def test_delete_minute_cross_tenant(
+    app: FastAPI, session_factory: async_sessionmaker
+) -> None:
     other = await register_admin(app)
     token = other["access_token"]
     tenant_id = other["user"]["tenant_id"]
     meeting = await seed_meeting(session_factory, uuid.UUID(tenant_id))
+    draft = await _create_draft(app, meeting, token)
     wrong = await register_admin(app)
     token2 = wrong["access_token"]
-    resp = await api(app, "DELETE", f"/api/v1/minutes/{meeting}", token=token2)
+    resp = await api(app, "DELETE", f"/api/v1/minutes/{draft['id']}", token=token2)
     assert resp.status_code == 404

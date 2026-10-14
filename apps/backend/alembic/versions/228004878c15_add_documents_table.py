@@ -14,8 +14,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision: str = '228004878c15'
-down_revision: str | None = 'd029a062d4d5'
+revision: str = "228004878c15"
+down_revision: str | None = "d029a062d4d5"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -26,7 +26,9 @@ _NOW = sa.text("now()")
 
 def upgrade() -> None:
     # Create enum types
-    op.execute("CREATE TYPE document_status AS ENUM ('pending', 'processing', 'completed', 'failed')")
+    op.execute(
+        "CREATE TYPE document_status AS ENUM ('pending', 'processing', 'completed', 'failed')"
+    )
     op.execute("CREATE TYPE document_type AS ENUM ('pdf', 'jpg', 'jpeg', 'png', 'tiff')")
 
     op.create_table(
@@ -45,8 +47,32 @@ def upgrade() -> None:
         ),
         sa.Column("title", sa.String(255), nullable=False),
         sa.Column("description", sa.Text()),
-        sa.Column("type", postgresql.ENUM("pdf", "jpg", "jpeg", "png", "tiff", name="document_type", create_type=False), nullable=False),
-        sa.Column("status", postgresql.ENUM("pending", "processing", "completed", "failed", name="document_status", create_type=False), nullable=False, server_default="pending"),
+        sa.Column(
+            "type",
+            postgresql.ENUM(
+                "pdf",
+                "jpg",
+                "jpeg",
+                "png",
+                "tiff",
+                name="document_type",
+                create_type=False,
+            ),
+            nullable=False,
+        ),
+        sa.Column(
+            "status",
+            postgresql.ENUM(
+                "pending",
+                "processing",
+                "completed",
+                "failed",
+                name="document_status",
+                create_type=False,
+            ),
+            nullable=False,
+            server_default="pending",
+        ),
         sa.Column("file_path", sa.String(500), nullable=False),
         sa.Column("file_size", sa.BigInteger(), nullable=False),
         sa.Column("sha256", sa.String(64), nullable=False),
@@ -93,7 +119,12 @@ def upgrade() -> None:
         sa.Column("ocr_confidence", sa.Float()),
         sa.Column("ocr_status", sa.String(20), nullable=False, server_default="pending"),
         sa.Column("pages", sa.Integer()),
-        sa.Column("metadata_json", postgresql.JSONB(), nullable=False, server_default=sa.text("'{}'")),
+        sa.Column(
+            "metadata_json",
+            postgresql.JSONB(),
+            nullable=False,
+            server_default=sa.text("'{}'"),
+        ),
         sa.Column(
             "created_by",
             _UUID,

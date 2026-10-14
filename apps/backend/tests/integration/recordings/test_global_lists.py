@@ -1,4 +1,5 @@
 """Recordings y transcriptions: listados globales por tenant — issue #119."""
+
 from __future__ import annotations
 
 import uuid
@@ -7,7 +8,6 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from tests.integration.meetings.conftest import api, register_admin
-from tests.integration.recordings.conftest import app  # noqa: F401
 
 
 async def _seed_recording(session_factory, tenant_id, user_id):
@@ -54,7 +54,9 @@ async def test_list_global_recordings(app: FastAPI, session_factory: async_sessi
     assert str(rid) in ids
 
 
-async def test_list_global_transcriptions(app: FastAPI, session_factory: async_sessionmaker) -> None:
+async def test_list_global_transcriptions(
+    app: FastAPI, session_factory: async_sessionmaker
+) -> None:
     admin = await register_admin(app)
     token = admin["access_token"]
     tenant_id = admin["user"]["tenant_id"]
@@ -62,6 +64,7 @@ async def test_list_global_transcriptions(app: FastAPI, session_factory: async_s
 
     # Seed a transcription for that recording
     from app.modules.transcription.models import Transcript
+
     async with session_factory() as session:
         tr = Transcript(
             tenant_id=uuid.UUID(tenant_id),
@@ -79,7 +82,9 @@ async def test_list_global_transcriptions(app: FastAPI, session_factory: async_s
     assert body["total"] >= 1
 
 
-async def test_list_global_recordings_filters(app: FastAPI, session_factory: async_sessionmaker) -> None:
+async def test_list_global_recordings_filters(
+    app: FastAPI, session_factory: async_sessionmaker
+) -> None:
     admin = await register_admin(app)
     token = admin["access_token"]
     tenant_id = admin["user"]["tenant_id"]

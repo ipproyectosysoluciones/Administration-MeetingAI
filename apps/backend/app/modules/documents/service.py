@@ -23,6 +23,7 @@ from app.modules.documents.models import (
     OcrStatus,
 )
 from app.modules.documents.providers import DocumentStorageProvider, LocalStorageProvider
+from app.modules.documents.schemas import DocumentVersionResponse
 from app.modules.ocr.providers import OCRProvider, TesseractOCRProvider
 from app.modules.ocr.service import OCRService
 
@@ -92,9 +93,7 @@ class DocumentService:
         session.add(doc)
         await session.flush()
 
-        self._record_audit(
-            session, user_id, tenant_id, "document.create", "document", doc.id
-        )
+        self._record_audit(session, user_id, tenant_id, "document.create", "document", doc.id)
         await session.commit()
 
         return DocumentUploadResult(
@@ -155,7 +154,11 @@ class DocumentService:
             total_stmt = total_stmt.where(Document.title.ilike(f"%{search}%"))
 
         total = len((await session.execute(total_stmt)).scalars().all())
-        stmt = stmt.order_by(Document.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        stmt = (
+            stmt.order_by(Document.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
         items = (await session.execute(stmt)).scalars().all()
         return items, total
 
@@ -231,7 +234,11 @@ class DocumentService:
         # Verify version matches
         expected_version = doc.version + 1
         if payload.version != expected_version:
-            raise APIError(409, "VERSION_CONFLICT", f"Expected version {expected_version}, got {payload.version}")
+            raise APIError(
+                409,
+                "VERSION_CONFLICT",
+                f"Expected version {expected_version}, got {payload.version}",
+            )
 
         # Store current state as version
         version = DocumentVersion(
@@ -261,7 +268,9 @@ class DocumentService:
         doc.updated_at = datetime.now(UTC)
         session.add(doc)
 
-        self._record_audit(session, user_id, tenant_id, "document.version.create", "document", document_id)
+        self._record_audit(
+            session, user_id, tenant_id, "document.version.create", "document", document_id
+        )
         await session.commit()
 
         return DocumentVersionResponse(
@@ -288,11 +297,15 @@ class DocumentService:
         page: int,
         page_size: int,
     ) -> tuple[list, int]:
-        doc = await self.get(session, document_id, tenant_id)
+        await self.get(session, document_id, tenant_id)
         stmt = select(DocumentVersion).where(DocumentVersion.document_id == document_id)
         total_stmt = select(DocumentVersion).where(DocumentVersion.document_id == document_id)
         total = len((await session.execute(total_stmt)).scalars().all())
-        stmt = stmt.order_by(DocumentVersion.version.desc()).offset((page - 1) * page_size).limit(page_size)
+        stmt = (
+            stmt.order_by(DocumentVersion.version.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
         items = (await session.execute(stmt)).scalars().all()
         return items, total
 
@@ -314,14 +327,18 @@ class DocumentService:
         # Validate file type
         try:
             doc_type = DocumentType(doc_type.lower())
-        except ValueError:
-            raise APIError(400, "INVALID_DOCUMENT_TYPE", f"Unsupported type: {doc_type}")
+        except ValueError as exc:
+            raise APIError(400, "INVALID_DOCUMENT_TYPE", f"Unsupported type: {doc_type}") from exc
 
         # Read file and compute SHA256
         content = await upload.read()
         sha256_hash = hashlib.sha256(content).hexdigest()
         file_size = len(content)
-        mime_type = upload.content_type or mimetypes.guess_type(upload.filename or "")[0] or "application/octet-stream"
+        mime_type = (
+            upload.content_type
+            or mimetypes.guess_type(upload.filename or "")[0]
+            or "application/octet-stream"
+        )
 
         # Check for duplicate
         existing = (
@@ -371,9 +388,7 @@ class DocumentService:
         )
         session.add(version)
 
-        self._record_audit(
-            session, user_id, tenant_id, "document.upload", "document", doc.id
-        )
+        self._record_audit(session, user_id, tenant_id, "document.upload", "document", doc.id)
         await session.commit()
 
         return DocumentUploadResult(
@@ -479,9 +494,7 @@ class DocumentService:
             doc.updated_at = datetime.now(UTC)
 
         session.add(doc)
-        self._record_audit(
-            session, user_id, tenant_id, "document.ocr", "document", document_id
-        )
+        self._record_audit(session, user_id, tenant_id, "document.ocr", "document", document_id)
         await session.commit()
 
         return await self.get(session, document_id, tenant_id)

@@ -219,6 +219,7 @@ async def list_document_versions(
 )
 async def upload_document(
     request: Request,
+    response: Response,
     db: Db,
     auth: DocumentUpload,
     file: UploadFile,

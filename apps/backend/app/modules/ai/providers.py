@@ -48,14 +48,25 @@ class NemotronAIProvider(AIProvider):
     ) -> dict:
         # Mock implementation - in production would call NVIDIA API
         return {
-            "summary": f"Resumen de la reunión: {meeting_title}. Se discutieron temas principales y se tomaron decisiones.",
+            "summary": (
+                f"Resumen de la reunión: {meeting_title}. "
+                "Se discutieron temas principales y se tomaron decisiones."
+            ),
             "decisions": [
                 "Decisión 1: Aprobar el presupuesto para el próximo trimestre",
                 "Decisión 2: Asignar responsable para el proyecto X",
             ],
             "tasks": [
-                {"description": "Preparar reporte financiero", "assignee": "Juan Pérez", "due_date": "2024-01-15"},
-                {"description": "Revisar contrato", "assignee": "María García", "due_date": "2024-01-20"},
+                {
+                    "description": "Preparar reporte financiero",
+                    "assignee": "Juan Pérez",
+                    "due_date": "2024-01-15",
+                },
+                {
+                    "description": "Revisar contrato",
+                    "assignee": "María García",
+                    "due_date": "2024-01-20",
+                },
             ],
             "responsibles": ["Juan Pérez", "María García"],
             "key_points": [

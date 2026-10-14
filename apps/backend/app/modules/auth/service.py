@@ -15,7 +15,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -611,9 +611,7 @@ class AuthService:
         user_agent: str | None,
     ) -> None:
         """Initiate password reset by sending a reset token to the user's email."""
-        user = (
-            await session.execute(select(User).where(User.email == email))
-        ).scalar_one_or_none()
+        user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
         if user is None or not user.is_active or user.deleted_at is not None:
             # Don't reveal if email exists
             return
@@ -637,7 +635,7 @@ class AuthService:
         reset_token_obj = PasswordResetToken(
             user_id=user.id,
             token_hash=reset_token_hash,
-            expires_at=datetime.now(UTC) + timedelta(hours=1),
+            expires_at=expires_at,
             ip=ip,
             user_agent=user_agent,
         )

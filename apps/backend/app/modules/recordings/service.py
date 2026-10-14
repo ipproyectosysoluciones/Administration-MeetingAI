@@ -229,36 +229,6 @@ class RecordingService:
         )
         return [self._public(r) for r in rows], total
 
-    async def list_for_tenant(
-        self,
-        session: AsyncSession,
-        *,
-        tenant_id: uuid.UUID,
-        page: int = 1,
-        page_size: int = 10,
-        status: str | None = None,
-        q: str | None = None,
-    ) -> tuple[list[RecordingResponse], int]:
-        """Global tenant-scoped recording list (paginated)."""
-        from sqlalchemy import func
-
-        base = select(Recording).where(
-            Recording.tenant_id == tenant_id, Recording.deleted_at.is_(None)
-        )
-        if status:
-            base = base.where(Recording.status == status)
-        if q:
-            base = base.where(Recording.original_name.ilike(f"%{q}%"))
-        total = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
-        rows = (
-            await session.execute(
-                base.order_by(Recording.created_at.desc())
-                .offset((page - 1) * page_size)
-                .limit(page_size)
-            )
-        ).scalars().all()
-        return [self._public(r) for r in rows], total
-
     async def get(
         self, session: AsyncSession, recording_id: uuid.UUID, tenant_id: uuid.UUID
     ) -> RecordingResponse:
