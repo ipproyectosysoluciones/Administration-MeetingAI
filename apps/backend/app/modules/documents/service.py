@@ -10,14 +10,18 @@ from datetime import UTC, datetime
 from typing import BinaryIO
 
 from fastapi import UploadFile
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.core.config import Settings
 from app.core.exceptions import APIError
 from app.modules.audit.models import AuditEvent
-from app.modules.documents.models import Document, DocumentStatus, DocumentType, DocumentVersion, OcrStatus
+from app.modules.documents.models import (
+    Document,
+    DocumentStatus,
+    DocumentType,
+    DocumentVersion,
+    OcrStatus,
+)
 from app.modules.documents.providers import DocumentStorageProvider, LocalStorageProvider
 from app.modules.ocr.providers import OCRProvider, TesseractOCRProvider
 from app.modules.ocr.service import OCRService

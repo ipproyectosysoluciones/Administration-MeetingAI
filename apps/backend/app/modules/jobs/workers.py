@@ -3,30 +3,17 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import Settings
-from app.core.database import async_session_factory
-from app.core.security import JWTService, PasswordHasher
-from app.modules.jobs.service import JobService
-from app.modules.recordings.models import Job
-from app.modules.recordings.providers import LocalStorageProvider
-from app.modules.recordings.service import RecordingService
-from app.modules.transcription import SpeechToTextProvider, FasterWhisperProvider
-from app.modules.transcription.service import TranscriptionService
-from app.modules.ocr.providers import OCRProvider, TesseractOCRProvider
-from app.modules.ocr.service import OCRService
-from app.modules.documents.providers import DocumentStorageProvider, LocalStorageProvider
-from app.modules.ai.providers import AIProvider, NemotronAIProvider
-from app.modules.ai.service import AIService
-from app.core.config import get_settings
-from app.core.database import async_session_factory
-from app.core.security import JWTService, PasswordHasher
 from app.core.exceptions import APIError
+from app.modules.ai.service import AIService
+from app.modules.ocr.service import OCRService
+from app.modules.recordings.models import Job
+from app.modules.transcription import FasterWhisperProvider, SpeechToTextProvider
+from app.modules.transcription.service import TranscriptionService
 
 
 class TranscriptionWorker:
@@ -34,8 +21,8 @@ class TranscriptionWorker:
 
     def __init__(
         self,
-        provider: Optional[SpeechToTextProvider] = None,
-        storage: Optional[Any] = None,
+        provider: SpeechToTextProvider | None = None,
+        storage: Any | None = None,
     ) -> None:
         self._provider = provider or FasterWhisperProvider()
         self._storage = storage
@@ -90,8 +77,8 @@ class OCRWorker:
 
     def __init__(
         self,
-        provider: Optional[Any] = None,
-        storage: Optional[Any] = None,
+        provider: Any | None = None,
+        storage: Any | None = None,
     ) -> None:
         self._provider = provider
         self._storage = None  # Would use DocumentStorageProvider
@@ -112,8 +99,6 @@ class OCRWorker:
         file_handle = await self._download_document(doc.file_path)
 
         # Run OCR
-        from app.modules.ocr.service import OCRService
-        from app.modules.ocr.providers import TesseractOCRProvider
         ocr_service = OCRService()
         result = await self._ocr_provider.process(file_handle, doc.mime_type)
 
@@ -133,7 +118,7 @@ class OCRWorker:
 class AIProcessingWorker:
     """Worker that processes AI jobs (summarization, decisions, tasks extraction)."""
 
-    def __init__(self, provider: Optional[Any] = None) -> None:
+    def __init__(self, provider: Any | None = None) -> None:
         self._provider = None  # Would use AIProvider
 
     async def process(self, session, job: Job) -> dict[str, Any]:
@@ -170,7 +155,6 @@ class AIProcessingWorker:
             )).scalars().all()
 
         # Run AI processing
-        from app.modules.ai.service import AIService
         ai_service = AIService(self._provider)
         result = await ai_service.process_meeting(
             transcript=transcript.text,

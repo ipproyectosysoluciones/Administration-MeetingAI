@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
-from app.modules.ai.providers import AIProvider, AIResult, MockAIProvider, NemotronAIProvider
+from app.modules.ai.providers import AIProvider, AIResult, MockAIProvider
 
 
 class AIService:
-    def __init__(self, provider: Optional[AIProvider] = None) -> None:
+    def __init__(self, provider: AIProvider | None = None) -> None:
         self._provider = provider or MockAIProvider()
 
     async def process_meeting(

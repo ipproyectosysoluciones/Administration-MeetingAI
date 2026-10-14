@@ -5,11 +5,10 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import AuthContext, get_db, require_permission
-from app.core.exceptions import APIError
+from app.core.dependencies import AuthContext
 from app.modules.notifications.service import NotificationsService
 
 router = APIRouter(tags=["notifications"], prefix="/notifications")
@@ -18,7 +17,7 @@ Db = Annotated["AsyncSession", "get_db"]
 Admin = Annotated["AuthContext", "Depends(require_permission(\"notifications.send\"))"]
 
 
-def _service() -> "NotificationsService":
+def _service() -> NotificationsService:
     from app.modules.notifications.service import NotificationsService
     return NotificationsService()
 

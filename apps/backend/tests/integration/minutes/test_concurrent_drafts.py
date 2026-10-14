@@ -8,8 +8,7 @@ import uuid
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from tests.integration.minutes.conftest import register_admin, seed_meeting
-from tests.integration.minutes.conftest import api
+from tests.integration.minutes.conftest import api, register_admin, seed_meeting
 
 
 async def _post_draft(app: FastAPI, meeting_id: uuid.UUID, token: str) -> int:

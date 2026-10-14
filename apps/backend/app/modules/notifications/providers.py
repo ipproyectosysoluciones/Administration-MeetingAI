@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -12,8 +11,8 @@ class EmailMessage:
     to: list[str]
     subject: str
     body: str
-    body_html: Optional[str] = None
-    from_email: Optional[str] = None
+    body_html: str | None = None
+    from_email: str | None = None
 
 
 class NotificationProvider(ABC):

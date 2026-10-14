@@ -3,20 +3,21 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import APIError
 from app.modules.audit.models import AuditEvent
-from app.modules.notifications.providers import EmailMessage, EmailProvider, MockNotificationProvider, NotificationProvider
+from app.modules.notifications.providers import (
+    EmailMessage,
+    MockNotificationProvider,
+    NotificationProvider,
+)
 from app.modules.users.models import User
 
 
 class NotificationsService:
-    def __init__(self, provider: Optional[NotificationProvider] = None) -> None:
+    def __init__(self, provider: NotificationProvider | None = None) -> None:
         self._provider = provider or MockNotificationProvider()
 
     async def send_notification(
@@ -246,7 +247,6 @@ class NotificationsService:
         ip: str | None = None,
         user_agent: str | None = None,
     ) -> None:
-        from app.modules.audit.models import AuditEvent
         session.add(
             AuditEvent(
                 actor_user_id=actor,

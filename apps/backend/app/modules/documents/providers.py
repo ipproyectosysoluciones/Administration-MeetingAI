@@ -33,6 +33,7 @@ class LocalStorageProvider(DocumentStorageProvider):
 
     async def store(self, tenant_id: str, sha256: str, content: bytes) -> str:
         import os
+
         import aiofiles
 
         # Path: /base/tenant_id/sha256[:2]/sha256[2:4]/sha256

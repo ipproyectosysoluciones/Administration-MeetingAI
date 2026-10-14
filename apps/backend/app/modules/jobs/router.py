@@ -5,17 +5,12 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import AuthContext, get_db, require_permission
-from app.core.exceptions import APIError
 from app.modules.jobs.service import (
     JobService,
-    JOB_TYPE_TRANSCRIBE,
-    JOB_TYPE_OCR,
-    JOB_TYPE_AI_PROCESS,
 )
 from app.modules.recordings.models import Job
 
@@ -110,7 +105,6 @@ async def list_jobs(
     # This would need a tenant_id column on Job model for full multi-tenant support
     stmt = select(Job).order_by(Job.created_at.desc())
     if status_filter:
-        from sqlalchemy import and_
         stmt = stmt.where(Job.status == status_filter)
     # Add pagination
     offset = (page - 1) * 20

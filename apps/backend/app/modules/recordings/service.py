@@ -240,7 +240,6 @@ class RecordingService:
         q: str | None = None,
     ) -> tuple[list[RecordingResponse], int]:
         """Global tenant-scoped recording list (paginated)."""
-        import math
         from sqlalchemy import func
 
         base = select(Recording).where(

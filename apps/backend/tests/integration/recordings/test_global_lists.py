@@ -6,12 +6,13 @@ import uuid
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from tests.integration.meetings.conftest import api, create_member, register_admin
+from tests.integration.meetings.conftest import api, register_admin
 from tests.integration.recordings.conftest import app  # noqa: F401
 
 
 async def _seed_recording(session_factory, tenant_id, user_id):
     from datetime import UTC, datetime, timedelta
+
     from app.modules.meetings.models import Meeting
     from app.modules.recordings.models import Recording
 

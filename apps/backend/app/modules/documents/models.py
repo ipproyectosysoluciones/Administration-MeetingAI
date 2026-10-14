@@ -6,8 +6,17 @@ import uuid
 from datetime import UTC, datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, Float, Integer, BigInteger, CheckConstraint
-from sqlalchemy.dialects.postgresql import ENUM, INET, JSONB, UUID
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import ENUM, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
