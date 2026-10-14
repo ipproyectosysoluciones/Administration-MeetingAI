@@ -52,6 +52,13 @@ class Settings(BaseSettings):
     # Frontend
     frontend_url: str = "http://localhost:4321"
 
+    # AI provider (OpenAI-compatible, p. ej. NVIDIA NIM)
+    ai_api_key: str = ""
+    ai_base_url: str = "https://integrate.api.nvidia.com/v1"
+    ai_model: str = "nvidia/nemotron-3-ultra-550b-a55b"
+    ai_provider: str = "mock"  # mock | nemotron
+    ai_timeout_seconds: int = 60
+
     @property
     def cors_allow_origins_list(self) -> list[str]:
         """Parse the comma-separated CORS origins into a list."""

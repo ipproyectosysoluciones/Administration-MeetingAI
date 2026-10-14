@@ -14,11 +14,12 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.exceptions import APIError
 from app.modules.audit.service import AuditService
 from app.modules.meetings.models import Meeting
 from app.modules.minutes.models import Minute
-from app.modules.minutes.providers import AIProvider, MockProvider
+from app.modules.minutes.providers import AIProvider, MockProvider, OpenAICompatibleProvider
 from app.modules.minutes.schemas import MinuteListResponse, MinuteResponse
 from app.modules.transcription.models import Transcript
 
@@ -31,8 +32,22 @@ _VALID_TRANSITIONS: dict[str, str] = {
 
 
 class MinutesService:
+    provider: AIProvider
+
     def __init__(self, provider: AIProvider | None = None) -> None:
-        self.provider: AIProvider = provider or MockProvider()
+        if provider is not None:
+            self.provider = provider
+            return
+        settings = get_settings()
+        if settings.ai_provider == "nemotron" and settings.ai_api_key:
+            self.provider = OpenAICompatibleProvider(
+                api_key=settings.ai_api_key,
+                model=settings.ai_model,
+                base_url=settings.ai_base_url,
+                timeout_seconds=settings.ai_timeout_seconds,
+            )
+        else:
+            self.provider = MockProvider()
 
     async def generate_draft_from_transcription(
         self,
@@ -397,18 +412,17 @@ class MinutesService:
         minute_id: uuid.UUID,
         tenant_id: uuid.UUID,
         actor: uuid.UUID,
-    ) -> Minute:
+    ) -> None:
+        """Borrado de minutes dentro del tenant. Se audita el evento."""
         minute = await self.get_for_tenant(session, minute_id=minute_id, tenant_id=tenant_id)
-        minute.deleted_at = datetime.now(UTC)
-        await session.flush()
         await self._audit(
             session,
             tenant_id=tenant_id,
             actor=actor,
             action="minutes.delete",
-            resource_id=minute.id,
+            resource_id=minute_id,
         )
-        return minute
+        await session.delete(minute)
 
     async def _audit(
         self,

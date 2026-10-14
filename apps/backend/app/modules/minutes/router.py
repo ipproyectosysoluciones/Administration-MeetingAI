@@ -18,9 +18,9 @@ from app.modules.minutes.schemas import (
     MinuteCreateRequest,
     MinuteListResponse,
     MinuteResponse,
+    MinuteUpdateRequest,
     MinuteVersionListResponse,
     MinuteVersionResponse,
-    MinuteUpdateRequest,
 )
 from app.modules.minutes.service import MinutesService
 
@@ -231,11 +231,11 @@ async def list_minute_versions(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=_MAX_PAGE_SIZE),
 ) -> MinuteVersionListResponse:
-    minute = await _service().get_for_tenant(db, minute_id=minute_id, tenant_id=_tenant(auth))
+    await _service().get_for_tenant(db, minute_id=minute_id, tenant_id=_tenant(auth))
     # Use a separate query for versions
+    from sqlalchemy import func, select
+
     from app.modules.minutes.models import MinuteVersion
-    from sqlalchemy import select, func
-    from sqlalchemy.ext.asyncio import AsyncSession
     
     base = select(MinuteVersion).where(MinuteVersion.minute_id == minute_id)
     total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
