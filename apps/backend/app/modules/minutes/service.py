@@ -353,6 +353,63 @@ class MinutesService:
             pages=math.ceil(total / page_size) if total else 1,
         )
 
+    async def list_for_tenant(
+        self,
+        session: AsyncSession,
+        *,
+        tenant_id: uuid.UUID,
+        page: int = 1,
+        page_size: int = 10,
+        status: str | None = None,
+        q: str | None = None,
+    ) -> MinuteListResponse:
+        base = select(Minute).where(Minute.tenant_id == tenant_id)
+        if status:
+            base = base.where(Minute.status == status)
+        if q:
+            base = base.where(Minute.title.ilike(f"%{q}%"))
+        total = (
+            await session.execute(select(func.count()).select_from(base.subquery()))
+        ).scalar_one()
+        rows = (
+            (
+                await session.execute(
+                    base.order_by(Minute.created_at.desc())
+                    .offset((page - 1) * page_size)
+                    .limit(page_size)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return MinuteListResponse(
+            items=[MinuteResponse.model_validate(r) for r in rows],
+            total=total,
+            page=page,
+            page_size=page_size,
+            pages=math.ceil(total / page_size) if total else 0,
+        )
+
+    async def delete(
+        self,
+        session: AsyncSession,
+        *,
+        minute_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        actor: uuid.UUID,
+    ) -> Minute:
+        minute = await self.get_for_tenant(session, minute_id=minute_id, tenant_id=tenant_id)
+        minute.deleted_at = datetime.now(UTC)
+        await session.flush()
+        await self._audit(
+            session,
+            tenant_id=tenant_id,
+            actor=actor,
+            action="minutes.delete",
+            resource_id=minute.id,
+        )
+        return minute
+
     async def _audit(
         self,
         session: AsyncSession,

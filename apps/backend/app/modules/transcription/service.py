@@ -109,6 +109,41 @@ class TranscriptionService:
             raise APIError(404, "TRANSCRIPTION_NOT_FOUND", "Transcription not found")
         return row
 
+    async def list_for_tenant(
+        self,
+        session: AsyncSession,
+        *,
+        tenant_id: uuid.UUID,
+        page: int,
+        page_size: int,
+        status: str | None = None,
+    ) -> TranscriptionListResponse:
+        """Listado global por tenant (paginado, filtrado por status opcional)."""
+        base = select(Transcript).where(Transcript.tenant_id == tenant_id)
+        if status:
+            base = base.where(Transcript.status == status)
+        total = (
+            await session.execute(select(func.count()).select_from(base.subquery()))
+        ).scalar_one()
+        rows = (
+            (
+                await session.execute(
+                    base.order_by(Transcript.created_at.desc())
+                    .offset((page - 1) * page_size)
+                    .limit(page_size)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return TranscriptionListResponse(
+            items=[TranscriptionResponse.model_validate(r) for r in rows],
+            total=total,
+            page=page,
+            page_size=page_size,
+            pages=math.ceil(total / page_size) if total else 1,
+        )
+
     async def list_for_recording(
         self,
         session: AsyncSession,

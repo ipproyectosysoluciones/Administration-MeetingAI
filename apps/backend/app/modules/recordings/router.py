@@ -9,13 +9,13 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import AuthContext, get_db, require_permission
 from app.core.exceptions import APIError
-from app.modules.recordings.schemas import RecordingResponse
+from app.modules.recordings.schemas import RecordingListResponse, RecordingResponse
 from app.modules.recordings.service import RecordingService
 
 router = APIRouter(tags=["recordings"])
@@ -65,6 +65,35 @@ async def upload_recording(
     status = result.pop("_status", 201)
     response.status_code = status
     return RecordingResponse.model_validate(result)
+
+
+@router.get("/recordings", response_model=RecordingListResponse)
+async def list_tenant_recordings(
+    request: Request,
+    db: Db,
+    auth: RecordingRead,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=50),
+    status: str | None = None,
+    q: str | None = None,
+) -> RecordingListResponse:
+    svc = _service(request)
+    items, total = await svc.list_for_tenant(
+        db,
+        tenant_id=_tenant(auth),
+        page=page,
+        page_size=page_size,
+        status=status,
+        q=q,
+    )
+    import math
+    return RecordingListResponse(
+        items=[RecordingResponse.model_validate(i) for i in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=math.ceil(total / page_size) if total else 1,
+    )
 
 
 # ---- listing ---------------------------------------------------------------
