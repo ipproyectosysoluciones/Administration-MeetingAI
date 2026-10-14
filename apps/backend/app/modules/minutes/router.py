@@ -137,9 +137,7 @@ async def generate_minute_draft(meeting_id: uuid.UUID, db: Db, auth: MinuteWrite
 
 
 @router.delete("/minutes/{minute_id}", status_code=204)
-async def delete_minute(
-    minute_id: uuid.UUID, db: Db, auth: MinuteWrite
-) -> None:
+async def delete_minute(minute_id: uuid.UUID, db: Db, auth: MinuteWrite) -> None:
     await _service().delete(db, minute_id=minute_id, tenant_id=_tenant(auth), actor=auth.user_id)
     await db.commit()
 
@@ -236,18 +234,23 @@ async def list_minute_versions(
     from sqlalchemy import func, select
 
     from app.modules.minutes.models import MinuteVersion
-    
+
     base = select(MinuteVersion).where(MinuteVersion.minute_id == minute_id)
     total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
     rows = (
-        await db.execute(
-            base.order_by(MinuteVersion.version.desc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
+        (
+            await db.execute(
+                base.order_by(MinuteVersion.version.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
         )
-    ).scalars().all()
-    
+        .scalars()
+        .all()
+    )
+
     from math import ceil
+
     return MinuteVersionListResponse(
         items=[MinuteVersionResponse.model_validate(r) for r in rows],
         total=total,

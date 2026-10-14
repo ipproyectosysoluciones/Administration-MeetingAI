@@ -87,6 +87,7 @@ async def list_tenant_recordings(
         q=q,
     )
     import math
+
     return RecordingListResponse(
         items=[RecordingResponse.model_validate(i) for i in items],
         total=total,

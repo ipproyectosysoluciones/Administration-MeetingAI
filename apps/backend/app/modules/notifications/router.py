@@ -14,17 +14,19 @@ from app.modules.notifications.service import NotificationsService
 router = APIRouter(tags=["notifications"], prefix="/notifications")
 
 Db = Annotated["AsyncSession", "get_db"]
-Admin = Annotated["AuthContext", "Depends(require_permission(\"notifications.send\"))"]
+Admin = Annotated["AuthContext", 'Depends(require_permission("notifications.send"))']
 
 
 def _service() -> NotificationsService:
     from app.modules.notifications.service import NotificationsService
+
     return NotificationsService()
 
 
 def _tenant(auth) -> uuid.UUID:
     if auth.tenant_id is None:
         from app.core.exceptions import APIError
+
         raise APIError(403, "NO_ACTIVE_MEMBERSHIP", "No active tenant membership")
     return auth.tenant_id
 

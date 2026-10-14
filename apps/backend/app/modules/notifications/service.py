@@ -39,9 +39,11 @@ class NotificationsService:
         if not recipient_user_ids:
             return 0
 
-        users = (await session.execute(
-            select(User).where(User.id.in_(recipient_user_ids))
-        )).scalars().all()
+        users = (
+            (await session.execute(select(User).where(User.id.in_(recipient_user_ids))))
+            .scalars()
+            .all()
+        )
 
         if not users:
             return 0

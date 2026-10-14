@@ -134,9 +134,7 @@ class JobService:
         session.add(job)
         return job
 
-    async def claim_batch(
-        self, session: AsyncSession, worker_id: str, limit: int = 10
-    ) -> list:
+    async def claim_batch(self, session: AsyncSession, worker_id: str, limit: int = 10) -> list:
         """Claim up to ``limit`` pending jobs with FOR UPDATE SKIP LOCKED."""
         stmt = (
             select(Job)

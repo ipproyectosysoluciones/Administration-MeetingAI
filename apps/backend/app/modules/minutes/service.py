@@ -117,11 +117,13 @@ class MinutesService:
         """Inserta un nuevo borrador (version = siguiente libre para este meeting)."""
         meeting = (
             await session.execute(
-                select(Meeting).where(
+                select(Meeting)
+                .where(
                     Meeting.id == meeting_id,
                     Meeting.organization_id == tenant_id,
                     Meeting.deleted_at.is_(None),
-                ).with_for_update()
+                )
+                .with_for_update()
             )
         ).scalar_one_or_none()
         if meeting is None:
@@ -295,9 +297,10 @@ class MinutesService:
                 )
             ).scalar_one_or_none()
             next_version = (last or 0) + 1
-            
+
             # Crear versión histórica
             from app.modules.minutes.models import MinuteVersion
+
             version = MinuteVersion(
                 minute_id=minute.id,
                 version=minute.version,

@@ -26,6 +26,7 @@ def _service(request: Request) -> JobService:
 def _tenant(auth) -> str:
     if auth.tenant_id is None:
         from app.core.exceptions import APIError
+
         raise APIError(403, "NO_ACTIVE_MEMBERSHIP", "No active tenant membership")
     return str(auth.tenant_id)
 
@@ -122,11 +123,13 @@ async def get_job(
 ):
     """Get job status and details."""
     from sqlalchemy import select
-    job = (await request.app.state.session_factory().execute(
-        select(Job).where(Job.id == job_id)
-    )).scalar_one_or_none()
+
+    job = (
+        await request.app.state.session_factory().execute(select(Job).where(Job.id == job_id))
+    ).scalar_one_or_none()
     if not job:
         from app.core.exceptions import APIError
+
         raise APIError(404, "JOB_NOT_FOUND", "Job not found")
     return {
         "id": str(job.id),
