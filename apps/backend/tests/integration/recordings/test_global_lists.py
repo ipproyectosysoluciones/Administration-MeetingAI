@@ -91,3 +91,18 @@ async def test_list_global_recordings_filters(
     await _seed_recording(session_factory, tenant_id, admin["user"]["id"])
     resp = await api(app, "GET", "/api/v1/recordings?status=completed&page=1", token=token)
     assert resp.status_code == 200, resp.text
+
+
+async def test_list_global_recordings_q_filter(
+    app: FastAPI, session_factory: async_sessionmaker
+) -> None:
+    admin = await register_admin(app)
+    token = admin["access_token"]
+    tenant_id = admin["user"]["tenant_id"]
+    await _seed_recording(session_factory, tenant_id, admin["user"]["id"])
+
+    resp = await api(app, "GET", "/api/v1/recordings?q=no_match_zzz&page=1", token=token)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 0
+    assert body["items"] == []

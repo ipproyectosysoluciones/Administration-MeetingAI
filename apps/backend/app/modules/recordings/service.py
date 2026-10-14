@@ -212,7 +212,7 @@ class RecordingService:
         if status:
             base = base.where(Recording.status == status)
         if q:
-            base = base.where(Recording.original_name.ilike(f"%{q}%"))
+            base = base.where(Recording.filename.ilike(f"%{q}%"))
         total = (
             await session.execute(select(func.count()).select_from(base.subquery()))
         ).scalar_one()
