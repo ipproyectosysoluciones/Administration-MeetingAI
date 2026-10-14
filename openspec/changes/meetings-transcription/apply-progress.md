@@ -20,4 +20,4 @@ Change: `meetings-transcription` (SDD). Estado: **implementado y mergeado a deve
 
 ## E2E smoke (issue #90)
 - `scripts/smoke_transcription.py` (issue #90, PR): genera un wav sintético (ffmpeg sine), lo almacena, encola un job `process_recording` y corre `worker.run_once` con faster-whisper real. No corre en CI; local bajo demanda (`cd apps/backend && .venv/bin/python ../../scripts/smoke_transcription.py`).
-- Estado: **pendiente de ejecución** (requiere descargar el modelo whisper + ffmpeg). Resultado se registra aquí al correrlo.
+- **Ejecutado el 2026-10-14 (issue #120)**: migrations `alembic upgrade head` aplicadas sobre `reunionai-test-pg` (:5433); whisper descargado; resultado **PASS** — `Transcript(draft)` creado (id `04cd3292-5f37-45f7-ba0e-57221adc7c4f`, `text_len=3`, cuvete esperado porque el input es un tono sinusoidal sin voz humana).
