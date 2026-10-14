@@ -241,7 +241,7 @@ async def upload_document(
         ip=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
-    response.status_code = result.pop("_status", 201)
+    response.status_code = result._status
     return DocumentResponse.model_validate(result)
 
 

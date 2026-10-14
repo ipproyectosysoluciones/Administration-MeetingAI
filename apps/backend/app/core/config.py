@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     rate_limit_login_ip: int = 5
     rate_limit_login_user: int = 20
     rate_limit_register_ip: int = 3
+    rate_limit_forgot_ip: int = 5
+    rate_limit_reset_ip: int = 5
     rate_limit_refresh_ip: int = 30
     rate_limit_refresh_user: int = 60
     rate_limit_mfa_ip: int = 10

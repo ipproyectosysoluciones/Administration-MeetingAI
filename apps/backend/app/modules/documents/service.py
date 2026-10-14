@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import mimetypes
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import BinaryIO
+from typing import Any, BinaryIO
 
 from fastapi import UploadFile
 from sqlalchemy import select
@@ -130,7 +131,7 @@ class DocumentService:
         status: str | None,
         doc_type: str | None,
         search: str | None,
-    ) -> tuple[list, int]:
+    ) -> tuple[Sequence[Any], int]:
         stmt = select(Document).where(
             Document.tenant_id == tenant_id,
             Document.deleted_at.is_(None),
@@ -296,7 +297,7 @@ class DocumentService:
         document_id: uuid.UUID,
         page: int,
         page_size: int,
-    ) -> tuple[list, int]:
+    ) -> tuple[Sequence[Any], int]:
         await self.get(session, document_id, tenant_id)
         stmt = select(DocumentVersion).where(DocumentVersion.document_id == document_id)
         total_stmt = select(DocumentVersion).where(DocumentVersion.document_id == document_id)
@@ -326,7 +327,7 @@ class DocumentService:
     ) -> DocumentUploadResult:
         # Validate file type
         try:
-            doc_type = DocumentType(doc_type.lower())
+            doc_type_enum = DocumentType(doc_type.lower())
         except ValueError as exc:
             raise APIError(400, "INVALID_DOCUMENT_TYPE", f"Unsupported type: {doc_type}") from exc
 
@@ -354,7 +355,7 @@ class DocumentService:
             raise APIError(409, "DUPLICATE_DOCUMENT", "Document with same content already exists")
 
         # Store file
-        file_path = await self._storage.store(tenant_id, sha256_hash, content)
+        file_path = await self._storage.store(str(tenant_id), sha256_hash, content)
 
         # Create document
         doc = Document(
@@ -362,7 +363,7 @@ class DocumentService:
             meeting_id=meeting_id,
             title=title,
             description=description,
-            type=doc_type,
+            type=doc_type_enum,
             status=DocumentStatus.COMPLETED,
             file_path=file_path,
             file_size=file_size,

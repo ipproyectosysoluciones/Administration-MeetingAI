@@ -25,7 +25,7 @@ class TranscriptionWorker:
     ) -> None:
         self._provider = provider or FasterWhisperProvider()
         self._storage = storage
-        self._transcription_service = TranscriptionService(provider=self._provider)
+        self._transcription_service = TranscriptionService()
 
     async def process(self, session: AsyncSession, job: Job) -> dict[str, Any]:
         """Process a transcription job."""
@@ -33,7 +33,6 @@ class TranscriptionWorker:
         recording_id = payload.get("recording_id")
         meeting_id = payload.get("meeting_id")
         language = payload.get("language", "es")
-        diarize = payload.get("diarize", True)
 
         # Fetch recording
         from app.modules.recordings.models import Recording
@@ -45,19 +44,19 @@ class TranscriptionWorker:
             raise APIError(404, "RECORDING_NOT_FOUND", f"Recording {recording_id} not found")
 
         # Download file from storage
-        file_handle = await self._download_recording(recording.storage_path)
+        await self._download_recording(recording.storage_path)
 
         # Create transcription draft
         from app.modules.transcription.service import TranscriptionService
 
-        service = TranscriptionService(self._provider)
+        service = TranscriptionService()
+        result = await self._provider.transcribe(recording.storage_path, language=language)
         transcript = await service.create_draft(
             session,
-            recording_id=recording.id,
-            tenant_id=recording.tenant_id,
-            language=language,
-            diarize=diarize,
-            audio_handle=file_handle,
+            recording=recording,
+            result=result,
+            job_id=job.id,
+            model_used=type(self._provider).__name__,
         )
 
         return {
@@ -82,7 +81,7 @@ class OCRWorker:
         provider: Any | None = None,
         storage: Any | None = None,
     ) -> None:
-        self._provider = provider
+        self._ocr_provider: Any = provider
         self._storage = None  # Would use DocumentStorageProvider
 
     async def process(self, session, job: Job) -> dict[str, Any]:
@@ -116,6 +115,13 @@ class OCRWorker:
             "confidence": result.confidence,
         }
 
+    async def _download_document(self, file_path: str):
+        # This would download from the storage provider
+        # For now, return a mock handle
+        import io
+
+        return io.BytesIO(b"mock document data")
+
 
 class AIProcessingWorker:
     """Worker that processes AI jobs (summarization, decisions, tasks extraction)."""
@@ -139,11 +145,11 @@ class AIProcessingWorker:
             raise APIError(404, "MEETING_NOT_FOUND", f"Meeting {meeting_id} not found")
 
         # Fetch transcription
-        from app.modules.transcription.models import Transcription
+        from app.modules.transcription.models import Transcript
 
         transcript = (
             await session.execute(
-                select(Transcription).where(Transcription.id == uuid.UUID(transcription_id))
+                select(Transcript).where(Transcript.id == uuid.UUID(transcription_id))
             )
         ).scalar_one_or_none()
         if not transcript:
@@ -182,8 +188,8 @@ class AIProcessingWorker:
         # For now, return the result
         return {
             "meeting_id": str(meeting_id),
-            "summary": result.get("summary"),
-            "decisions": result.get("decisions", []),
-            "tasks": result.get("tasks", []),
-            "responsibles": result.get("responsibles", []),
+            "summary": result.summary,
+            "decisions": result.decisions,
+            "tasks": result.tasks,
+            "responsibles": result.responsibles,
         }

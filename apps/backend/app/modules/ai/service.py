@@ -12,7 +12,7 @@ class AIService:
     async def process_meeting(
         self,
         transcript: str,
-        documents: list[str] = None,
+        documents: list[str] | None = None,
         meeting_title: str = "",
         meeting_description: str = "",
     ) -> AIResult:
