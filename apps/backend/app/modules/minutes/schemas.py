@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,8 +17,8 @@ class MinuteCreateRequest(BaseModel):
 
 
 class MinuteUpdateRequest(BaseModel):
-    title: Optional[str] = Field(None, min_length=1, max_length=200)
-    content: Optional[str] = None
+    title: str | None = Field(None, min_length=1, max_length=200)
+    content: str | None = None
 
 
 class MinuteVersionResponse(BaseModel):
