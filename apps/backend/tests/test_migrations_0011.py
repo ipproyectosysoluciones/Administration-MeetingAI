@@ -24,17 +24,23 @@ async def test_ocr_jobs_table_exists(migrated_engine: AsyncEngine) -> None:
     async with factory() as session:
         table = (await session.execute(text("SELECT to_regclass('public.ocr_jobs')"))).scalar_one()
         assert table == "ocr_jobs"
-        # PRD §27 states are enforced by a CHECK constraint.
-        status_check = (
+        # PRD §27 states are enforced by a CHECK constraint. Matched by
+        # definition substrings, not by name: env.py's naming convention
+        # completes explicit constraint names, and PostgreSQL normalizes
+        # IN-lists to = ANY(ARRAY[...]) — both make name/literal coupling brittle.
+        status_checks = (
             await session.execute(
                 text(
                     "SELECT count(*) FROM pg_constraint "
-                    "WHERE conname = 'ck_ocr_jobs_status' "
-                    "AND conrelid = 'public.ocr_jobs'::regclass"
+                    "WHERE conrelid = 'public.ocr_jobs'::regclass "
+                    "AND contype = 'c' "
+                    "AND pg_get_constraintdef(oid) LIKE '%status%' "
+                    "AND pg_get_constraintdef(oid) LIKE '%queued%' "
+                    "AND pg_get_constraintdef(oid) LIKE '%failed%'"
                 )
             )
         ).scalar_one()
-        assert status_check == 1
+        assert status_checks == 1
         # One attempt row per document attempt number.
         unique_attempt = (
             await session.execute(
