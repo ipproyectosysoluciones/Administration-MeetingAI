@@ -97,4 +97,4 @@ async def test_seeding_is_idempotent(session_factory: async_sessionmaker) -> Non
     assert base_count == 10
     # 34 foundation + 5 meeting.* + 4 minutes.* (MIN-100) + 6 recordings/transcription;
     # rerunning the seed keeps the count stable.
-    assert perm_count == 49
+    assert perm_count == 57
