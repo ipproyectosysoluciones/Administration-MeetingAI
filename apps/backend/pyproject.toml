@@ -32,6 +32,11 @@ stt = [
     "faster-whisper>=1.1",  # transcription worker image (Dockerfile.worker)
 ]
 
+ocr = [
+    "pytesseract>=0.3.10",  # OCR provider images (Dockerfile.worker)
+    "ocrmypdf>=10.4",  # OCR provider PDFs (sidecar text)
+]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
