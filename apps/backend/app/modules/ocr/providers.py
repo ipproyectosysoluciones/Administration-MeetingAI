@@ -82,7 +82,14 @@ def _default_pdf_engine(data: bytes) -> tuple[str, float, int]:
     """ocrmypdf for PDFs (SDD design.md): sidecar text; page count from the
     sidecar's form-feed separators; confidence as the fraction of pages that
     produced text (documented simple proxy — per-page OCR confidence for PDFs
-    would require page rendering, out of OCR-3 scope)."""
+    would require page rendering, out of OCR-3 scope).
+
+    Consumer contract (OCR-4): this confidence feeds the quality gate
+    (`OCR_CONFIDENCE_THRESHOLD`, SDD default 0.60). A PDF whose pages all
+    yield text scores 1.0; an unreadable scan scores 0.0 and the gate flags
+    it `LOW_CONFIDENCE` for human correction — page-level OCR confidence
+    aggregation is a documented follow-up if the proxy proves too coarse.
+    """
     import ocrmypdf  # type: ignore  # noqa: PLC0415
 
     with tempfile.TemporaryDirectory() as tmp:
